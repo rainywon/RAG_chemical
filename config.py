@@ -76,14 +76,13 @@ class Config:
 
         # ████████ RAG检索配置 ████████
         self.max_context_length = 5000  # 输入LLM的上下文最大长度（避免过长导致性能下降）
-        self.bm25_top_k = 10  # BM25检索返回的候选文档数
-        self.vector_top_k = 10  # 向量检索返回的候选文档数
+        self.bm25_top_k = 30  # BM25检索返回的候选文档数
+        self.vector_top_k = 30  # 向量检索返回的候选文档数
         self.retrieval_weight = 0.4  # 检索阶段分数权重（与重排序阶段的加权比例）
         self.rerank_weight = 0.6  # 重排序阶段分数权重
         self.similarity_threshold = 0.5  # 相似度过滤阈值（低于此值的文档被丢弃）
         self.vector_similarity_threshold = 0.6  # 向量检索的相似度阈值
         self.bm25_similarity_threshold = 0.3  # BM25检索的相似度阈值
-        self.final_top_k = 6  # 最终返回给大模型的最相关文档数量
 
         # ████████ 详细输出配置 ████████
         self.print_detailed_chunks = False  # 启用详细输出

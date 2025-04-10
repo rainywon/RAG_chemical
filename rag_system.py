@@ -348,7 +348,7 @@ class RAGSystem:
         # 对向量检索结果进行阈值过滤
         filtered_vector_results = []
         for doc, score in unique_vector_results.values():
-            if score >= self.config.similarity_threshold:  # 使用统一的相似度阈值
+            if score >= self.config.vector_similarity_threshold:  # 使用统一的相似度阈值
                 filtered_vector_results.append({
                     "doc": doc,
                     "score": score * vector_weight,  # 应用动态权重
@@ -388,7 +388,7 @@ class RAGSystem:
         # 对BM25检索结果进行阈值过滤
         filtered_bm25_results = []
         for idx, norm_score in zip(top_bm25_indices, normalized_bm25_scores):
-            if norm_score >= self.config.similarity_threshold:  # 使用统一的相似度阈值
+            if norm_score >= self.config.bm25_similarity_threshold:  # 使用统一的相似度阈值
                 doc = Document(
                     page_content=self.bm25_docs[idx],
                     metadata=self.doc_metadata[idx]
@@ -559,7 +559,7 @@ class RAGSystem:
             for res, rerank_score in zip(results, rerank_scores):
                 # 加权平均策略
                 final_score = (
-                        self.config.retrieval_weight * res["norm_score"] +
+                        self.config.retrieval_weight * res["score"] +
                         self.config.rerank_weight * rerank_score
                 )
                 res.update({
@@ -596,6 +596,7 @@ class RAGSystem:
             selected = [ranked_results[0]]  # 最高分文档直接选入
             candidates = ranked_results[1:]
             
+            # 处理top 20文档
             while len(selected) < min(len(ranked_results), self.config.final_top_k):
                 # 计算每个候选文档的MMR分数
                 mmr_scores = []
@@ -627,7 +628,7 @@ class RAGSystem:
             
         except Exception as e:
             logger.error(f"多样性增强失败: {str(e)}")
-            # 失败时返回原始排序
+            # 失败时返回原始排序的前20个文档
             return ranked_results[:self.config.final_top_k]
     
     def _compute_document_similarity(self, doc1: str, doc2: str) -> float:
@@ -671,11 +672,8 @@ class RAGSystem:
             if not raw_results:
                 return [], []
 
-            # 分数归一化
-            norm_results = self._normalize_scores(raw_results)
-
-            # 重排序
-            reranked = self._rerank_documents(norm_results, question)
+            # 直接重排序
+            reranked = self._rerank_documents(raw_results, question)
 
             # 根据阈值过滤结果
             final_results = [
@@ -687,6 +685,19 @@ class RAGSystem:
                 key=lambda x: x["final_score"],
                 reverse=True
             )
+
+            # 输出最终分数信息
+            logger.info("📊 最终检索结果分数:")
+            for i, res in enumerate(final_results, 1):
+                logger.info(
+                    f"文档 {i}: {res['source']}\n"
+                    f"- 检索类型: {res['type']}\n"
+                    f"- 原始分数: {res['raw_score']:.4f}\n"
+                    f"- 重排序分数: {res['rerank_score']:.4f}\n"
+                    f"- 最终分数: {res['final_score']:.4f}\n"
+                    f"- 内容预览: {res['doc'].page_content[:100]}..."
+                )
+
             # 提取文档和分数信息
             docs = [res["doc"] for res in final_results]
             score_info = [{
