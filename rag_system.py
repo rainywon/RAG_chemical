@@ -14,7 +14,18 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer  # Tr
 from config import Config  # 自定义配置文件
 from build_vector_store import VectorDBBuilder  # 向量数据库构建器
 import numpy as np  # 数值计算库
+import pickle  # 用于序列化对象
+import hashlib  # 用于生成哈希值
+
+# 提前初始化jieba，加快后续启动速度
+import os
 import jieba  # 中文分词库
+
+# 设置jieba日志级别，减少输出
+jieba.setLogLevel(logging.INFO)
+
+# 预加载jieba分词器
+jieba.initialize()
 
 # 禁用不必要的警告
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -44,6 +55,7 @@ class RAGSystem:
         self.embeddings: Optional[Embeddings] = None  # 嵌入模型实例
         self.rerank_model = None  # 重排序模型
         self.vector_db_build = VectorDBBuilder(config)  # 向量数据库构建器实例
+        self._tokenize_cache = {}  # 添加分词缓存字典
 
         # 初始化各个组件
         self._init_logging()  # 初始化日志配置
@@ -54,11 +66,25 @@ class RAGSystem:
         self._init_rerank_model()  # 初始化重排序模型
 
     def _tokenize(self, text: str) -> List[str]:
-        """专业中文分词处理
+        """专业中文分词处理，使用缓存提高性能
         :param text: 待分词的文本
         :return: 分词后的词项列表
         """
-        return [word for word in jieba.cut(text) if word.strip()]
+        # 检查缓存中是否已有结果
+        if text in self._tokenize_cache:
+            return self._tokenize_cache[text]
+        
+        # 如果文本过长，只缓存前2000个字符的分词结果
+        cache_key = text[:2000] if len(text) > 2000 else text
+        
+        # 分词处理
+        result = [word for word in jieba.cut(text) if word.strip()]
+        
+        # 只在缓存不超过10000个条目时进行缓存
+        if len(self._tokenize_cache) < 10000:
+            self._tokenize_cache[cache_key] = result
+            
+        return result
 
     def _init_logging(self):
         """初始化日志配置"""
@@ -126,7 +152,7 @@ class RAGSystem:
             logger.info("🚀 正在初始化Ollama模型...")
             # 创建OllamaLLM实例
             self.llm = OllamaLLM(
-                model="deepseek-r1:8b",  # 模型名称
+                model="deepseek_8B.gguf:latest",  # 模型名称
                 #deepseek_8b_lora:latest    1513b8b198dc    8.5 GB    59 seconds ago
                 # deepseek-r1:8b             28f8fd6cdc67    4.9 GB    46 minutes ago
                 # deepseek-r1:14b            ea35dfe18182    9.0 GB    29 hours ago
@@ -145,7 +171,7 @@ class RAGSystem:
             raise RuntimeError(f"无法初始化Ollama模型: {str(e)}")
 
     def _init_bm25_retriever(self):
-        """初始化BM25检索器（改进版）"""
+        """初始化BM25检索器（持久化缓存版）"""
         try:
             logger.info("🔧 正在初始化BM25检索器...")
 
@@ -154,18 +180,63 @@ class RAGSystem:
                 raise ValueError("向量库中无可用文档")
 
             # 从向量库加载所有文档内容
-            all_docs = self.vector_store.docstore._dict.values()
+            all_docs = list(self.vector_store.docstore._dict.values())
             self.bm25_docs = [doc.page_content for doc in all_docs]
             self.doc_metadata = [doc.metadata for doc in all_docs]
-
-            # 中文分词处理
-            tokenized_docs = [self._tokenize(doc) for doc in self.bm25_docs]
+            
+            # 计算文档集合的哈希值，用于缓存标识
+            docs_hash = hashlib.md5(str([d[:100] for d in self.bm25_docs]).encode()).hexdigest()
+            cache_path = Path(self.config.vector_db_path).parent / f"bm25_tokenized_cache_{docs_hash}.pkl"
+            
+            # 尝试加载缓存的分词结果
+            if cache_path.exists():
+                try:
+                    logger.info(f"发现BM25分词缓存，正在加载: {cache_path}")
+                    with open(cache_path, 'rb') as f:
+                        cached_data = pickle.load(f)
+                        tokenized_docs = cached_data.get('tokenized_docs')
+                        
+                    if tokenized_docs and len(tokenized_docs) == len(self.bm25_docs):
+                        logger.info(f"成功加载缓存的分词结果，共 {len(tokenized_docs)} 篇文档")
+                    else:
+                        logger.warning("缓存数据不匹配，将重新处理分词")
+                        tokenized_docs = None
+                except Exception as e:
+                    logger.warning(f"加载缓存失败: {str(e)}，将重新处理分词")
+                    tokenized_docs = None
+            else:
+                tokenized_docs = None
+            
+            # 如果没有有效的缓存，重新分词处理
+            if tokenized_docs is None:
+                logger.info(f"开始处理 {len(self.bm25_docs)} 篇文档进行BM25索引...")
+                
+                # 批处理分词以减少内存压力
+                batch_size = 100  # 每批处理的文档数
+                tokenized_docs = []
+                
+                for i in range(0, len(self.bm25_docs), batch_size):
+                    batch = self.bm25_docs[i:i+batch_size]
+                    batch_tokenized = [self._tokenize(doc) for doc in batch]
+                    tokenized_docs.extend(batch_tokenized)
+                    
+                    if (i + batch_size) % 500 == 0 or (i + batch_size) >= len(self.bm25_docs):
+                        logger.info(f"已处理 {min(i + batch_size, len(self.bm25_docs))}/{len(self.bm25_docs)} 篇文档")
+                
+                # 保存分词结果到缓存
+                try:
+                    logger.info(f"保存分词结果到缓存: {cache_path}")
+                    with open(cache_path, 'wb') as f:
+                        pickle.dump({'tokenized_docs': tokenized_docs}, f)
+                except Exception as e:
+                    logger.warning(f"保存缓存失败: {str(e)}")
 
             # 验证分词结果有效性
             if len(tokenized_docs) == 0 or all(len(d) == 0 for d in tokenized_docs):
                 raise ValueError("文档分词后为空，请检查分词逻辑")
 
             # 初始化BM25模型
+            logger.info("开始构建BM25索引...")
             self.bm25 = BM25Okapi(tokenized_docs)
 
             logger.info(f"✅ BM25初始化完成，文档数：{len(self.bm25_docs)}")

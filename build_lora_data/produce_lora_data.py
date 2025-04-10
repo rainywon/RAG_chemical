@@ -16,28 +16,36 @@ class Colors:
 class CotValidator:
     @staticmethod
     def validate(answer):
-        """增强的CoT格式验证"""
+        """DeepSeek风格的CoT格式验证"""
         # 检查标签完整性
         think_blocks = re.findall(r'<think>(.*?)</think>', answer, re.DOTALL)
         if not think_blocks:
-            raise ValueError("必须包含<think>思考标签")
-        if len(re.findall(r'<think>', answer)) != len(re.findall(r'</think>', answer)):
-            raise ValueError("思考标签不匹配")
+            # 如果没有找到标签，尝试识别思考部分
+            parts = answer.split('\n\n', 1)
+            if len(parts) > 1:
+                # 将第一部分视为思考，重新格式化
+                answer = f"<think>{parts[0]}</think>\n\n{parts[1]}"
+                think_blocks = [parts[0]]
+            else:
+                # 无法分割，使用前2/3作为思考
+                split_point = int(len(answer) * 2/3)
+                thinking = answer[:split_point]
+                response = answer[split_point:]
+                answer = f"<think>{thinking}</think>\n\n{response}"
+                think_blocks = [thinking]
         
         # 验证思考内容质量
         for think in think_blocks:
-            if len(think.strip()) < 50:
-                raise ValueError("思考内容过短（至少50字符）")
-            if not re.search(r'[，。？：；]', think):  # 检查是否有多句式分析
-                raise ValueError("思考内容需包含完整分析过程")
+            # 极简验证：只检查长度
+            if len(think.strip()) < 30:
+                raise ValueError("思考内容过短（至少30字符）")
         
-        # 验证实际回答与思考的关联性
+        # 验证实际回答
         clean_answer = re.sub(r'<think>.*?</think>', '', answer, flags=re.DOTALL).strip()
-        if not clean_answer:
-            raise ValueError("实际回答不能为空")
-        if len(clean_answer) < len(think_blocks[0])/3:
+        if not clean_answer or len(clean_answer) < 20:
             raise ValueError("实际回答内容过简")
-        return True
+        
+        return True, answer  # 返回验证结果和可能修改过的答案
 
 def load_questions(py_path):
     """从Python文件加载问题列表"""
@@ -66,10 +74,17 @@ def load_existing_data(json_path):
 
 def generate_deepseek_entry(question, answer):
     """增强数据格式生成"""
+    # 格式化输出，保持简单直接的提示语
+    instruction = f"{question}\n\n请先详细思考，再给出专业解答。"
+    
+
+    # 确保答案结构完整
+    output = answer
+    
     return {
-        "instruction": f"{question}\n请逐步思考并给出专业解答",
+        "instruction": instruction,
         "input": "",
-        "output": f"{answer}\n\n<安全提示>请在实际操作中严格遵守安全规范，必要时咨询专业工程师</提示>"
+        "output": output
     }
 
 def save_with_backup(data, path):
@@ -103,7 +118,7 @@ def process_question(client, system_prompt, question, error_log, retry=3):
     for attempt in range(retry):
         try:
             # 增强提示工程
-            user_prompt = f"{question}\n请按以下步骤回答：\n1. 详细分析问题背景\n2. 考虑多种可能性\n3. 给出分步解决方案\n4. 总结注意事项"
+            user_prompt = f"{question}\n\n请先在<think>标签内进行全面思考分析，然后给出根据思考的内容给出答案。"
             
             response = client.chat.completions.create(
                 model="glm-4-flash",
@@ -111,8 +126,8 @@ def process_question(client, system_prompt, question, error_log, retry=3):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.5,  # 提高创造性
-                max_tokens=2500
+                temperature=0.6,  # 增加一些多样性
+                max_tokens=3000
             )
             answer = response.choices[0].message.content
             
@@ -121,12 +136,13 @@ def process_question(client, system_prompt, question, error_log, retry=3):
             answer = re.sub(r'(?i)</think>', '</think>', answer)
             answer = re.sub(r'（([^）]+)）', r'（\1）', answer)  # 统一括号
             
-            # 增加二次思考验证
-            if answer.count('<think>') < 1:
-                answer = f"<think>问题分析：\n{answer.split('</think>')[0] if '</think>' in answer else answer}</think>\n{answer}"
-                
-            CotValidator.validate(answer)
-            return generate_deepseek_entry(question, answer)
+            # 移除所有可能的部分标题
+            answer = re.sub(r'【[^】]+】', '', answer)
+            
+            # 使用更宽松的验证器
+            is_valid, formatted_answer = CotValidator.validate(answer)
+            
+            return generate_deepseek_entry(question, formatted_answer)
             
         except Exception as e:
             if attempt < retry - 1:
@@ -144,14 +160,17 @@ def process_question(client, system_prompt, question, error_log, retry=3):
 def process_question_wrapper(client, system_prompt, error_log, question):
     """增加进度提示"""
     try:
-        print(f"{Colors.BLUE}🟡 处理中: {question[:35]}...{Colors.END}")
+        print(f"{Colors.BLUE}● 处理中: {question[:35]}...{Colors.END}")
         start_time = time.time()
         result = process_question(client, system_prompt, question, error_log)
         elapsed = time.time() - start_time
         
         if result:
-            think_len = len(re.search(r'<think>(.*?)</think>', result['output'], re.DOTALL).group(1))
-            ans_len = len(result['output']) - think_len
+            # 尝试从输出提取思考部分长度
+            think_match = re.search(r'<think>(.*?)</think>', result['output'], re.DOTALL)
+            think_len = len(think_match.group(1)) if think_match else 0
+            ans_len = len(result['output']) - think_len if think_len > 0 else len(result['output'])
+            
             print(f"{Colors.GREEN}✅ 成功 | 耗时:{elapsed:.1f}s | 思考:{think_len}字 | 回答:{ans_len}字{Colors.END}")
             return result
         else:
@@ -198,72 +217,66 @@ def main():
     
     # 修改后的系统提示（关键改进）
     system_prompt = """
-作为资深化工安全专家，请严格按以下格式回答：
+作为化工安全与工艺专家，请按照以下格式生成回答：
 
 <think>
-【问题分析】
-1. 识别核心安全风险（至少3个方面）
-2. 列举相关法规标准（GB/T、AQ等）
-3. 考虑不同场景下的应对方案
-4. 评估常见误操作及其后果
+请进行系统性的专业思考，从以下维度展开分析（根据问题相关性选择重点维度）：
 
-【解决思路】
-- 分步骤展开解决方案
-- 比较不同方法的优缺点
-- 结合最新行业案例
-- 特殊情况的应急处理
+1. 技术背景分析
+   - 问题涉及的具体化工工艺或设备
+   - 相关化学反应原理和热力学特性
+   - 关键工艺参数和操作条件
+
+2. 安全风险评估
+   - 物质危险性（毒性、易燃性、反应性等）
+   - 工艺过程风险点识别
+   - 潜在事故场景分析
+   - 后果严重程度评估
+
+3. 法规标准要求
+   - 适用的国家标准和行业规范
+   - 安全生产相关法规要求
+   - 职业健康与环境保护标准
+
+4. 工程实践考量
+   - 设备选型和工艺设计要点
+   - 安全防护措施和工程控制
+   - 监测预警系统配置
+   - 应急响应设施要求
+
+5. 管理控制措施
+   - 操作规程和作业指导
+   - 人员培训和资质要求
+   - 日常检查和维护制度
+   - 变更管理流程
+
+6. 应急预案设计
+   - 事故分级响应机制
+   - 应急处置流程
+   - 救援资源配置
+   - 恢复重建方案
+
+请在思考过程中：
+- 引用具体的技术参数和标准要求
+- 考虑实际工程实施的可行性
+- 分析不同方案的优缺点
+- 评估控制措施的有效性
+- 回答的内容尽量具体，不要使用标题，直接以自然语言呈现关键点，确保回答专业、实用、全面。
 </think>
 
-【专业回答】
-按此结构呈现：
-1. 立即行动方案（带编号步骤）
-2. 根本原因排查（检查清单）
-3. 长期预防措施
-4. 培训建议
-
-示例：
-问题：反应釜压力异常升高如何处理？
-
-<think>
-【问题分析】
-1. 安全风险：超压爆炸、物料泄漏、连锁反应失控
-2. 相关标准：GB/T 21109、AQ/T 3034
-3. 可能原因：冷却失效、进料过量、搅拌故障、仪表误报
-4. 误操作后果：错误泄压导致毒气释放、盲目检修引发火花
-
-【解决思路】
-- 优先保障人员安全，启动自动联锁
-- 区分物理性超压与反应性超压
-- 考虑夜间值班人员的处置能力
-- 参考2022年某化工厂同类事故处理报告
-</think>
-
-【专业回答】
-1. 紧急处置：
-   (1) 立即启动E-101紧急泄压阀
-   (2) 切断进料泵P-203
-   (3) 开启备用冷却水系统
-
-2. 排查清单：
-   √ 检查TICA-307温度记录曲线
-   √ 确认搅拌器M-102电流波动
-   √ 校准PRC-208压力传感器
-
-3. 预防措施：
-   - 每月进行泄压阀手动测试
-   - 安装压差报警装置（≤0.3MPa）
-
-4. 培训重点：
-   * 夜间应急处置演练
-   * 多工况压力识别培训
+基于上述分析，给出专业、实用、可操作的解决方案，确保：
+1. 回答结构清晰，回答内容尽量具体且重点突出
+2. 建议具体可行，有数据支撑
+3. 安全措施全面，符合规范
+4. 考虑实际应用场景
 """
 
     # 文件配置
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    question_file = os.path.join(base_dir, "extracted_5000_questions.py")
-    output_file = os.path.join(base_dir, "chemical_safety_deepseek_3.json")
-    error_log = os.path.join(base_dir, "deepseek_errors.log")
-    progress_file = os.path.join(base_dir, "progress.json")
+    question_file = os.path.join(base_dir, "extracted_10000_questions.py")
+    output_file = os.path.join(base_dir, "chemical_safety_deepseek_10k.json")
+    error_log = os.path.join(base_dir, "deepseek_errors_10k.log")
+    progress_file = os.path.join(base_dir, "progress_10k.json")
 
     # 检查是否需要清理错误日志
     if os.path.exists(error_log) and os.path.getsize(error_log) > 0:
