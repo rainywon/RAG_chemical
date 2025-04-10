@@ -351,7 +351,7 @@ class RAGSystem:
             if score >= self.config.vector_similarity_threshold:  # 使用统一的相似度阈值
                 filtered_vector_results.append({
                     "doc": doc,
-                    "score": score * vector_weight,  # 应用动态权重
+                    "score": score,  # 应用动态权重
                     "raw_score": score,
                     "type": "vector",
                     "source": doc.metadata.get("source", "unknown")
@@ -376,12 +376,18 @@ class RAGSystem:
         # 对BM25分数进行归一化处理
         bm25_scores = [all_bm25_scores[idx] for idx in top_bm25_indices]
         if bm25_scores:  # 确保有分数可以归一化
-            min_score = min(bm25_scores)
-            max_score = max(bm25_scores)
-            if max_score > min_score:  # 避免除以0
-                normalized_bm25_scores = [(score - min_score) / (max_score - min_score) for score in bm25_scores]
-            else:
-                normalized_bm25_scores = [1.0] * len(bm25_scores)  # 如果所有分数相同，归一化为1
+            # 计算均值和标准差
+            mean_score = np.mean(bm25_scores)
+            std_score = np.std(bm25_scores) + 1e-9  # 避免除以0
+            
+            # 使用Logistic归一化
+            normalized_bm25_scores = []
+            for score in bm25_scores:
+                # 先进行Z-score标准化
+                z_score = (score - mean_score) / std_score
+                # 然后应用Sigmoid函数
+                logistic_score = 1 / (1 + np.exp(-z_score))
+                normalized_bm25_scores.append(logistic_score)
         else:
             normalized_bm25_scores = []
 
@@ -395,12 +401,12 @@ class RAGSystem:
                 )
                 filtered_bm25_results.append({
                     "doc": doc,
-                    "score": norm_score * bm25_weight,  # 应用动态权重
+                    "score": norm_score,  # 使用归一化后的分数
                     "raw_score": norm_score,
                     "type": "bm25",
                     "source": doc.metadata.get("source", "unknown")
                 })
-                logger.info(f"🔍 BM25检索结果: {doc.metadata['source']} - 分数: {norm_score:.4f}")
+                logger.info(f"🔍 BM25检索结果: {doc.metadata['source']} - 原始分数: {all_bm25_scores[idx]:.4f} - 归一化分数: {norm_score:.4f}")
 
         # 合并过滤后的结果
         results = filtered_vector_results + filtered_bm25_results
@@ -463,67 +469,7 @@ class RAGSystem:
             logger.warning(f"⚠️ 动态权重计算失败: {str(e)}")
             return default_vector, default_bm25
 
-    def _safe_normalize(self,scores: List[float]) -> List[float]:
-        """安全归一化处理"""
-        if len(scores) == 0:
-            return []
 
-        min_val = min(scores)
-        max_val = max(scores)
-
-        # 处理常数情况
-        if max_val == min_val:
-            return [0.5] * len(scores)  # 返回中性值
-
-        return [(x - min_val) / (max_val - min_val) for x in scores]
-
-    def _distribution_aware_normalize(self,scores: List[float], method: str) -> List[float]:
-        """分布感知的归一化"""
-        if method == "robust":
-            # 使用四分位数鲁棒归一化
-            q25, q75 = np.percentile(scores, [25, 75])
-            iqr = q75 - q25
-            if iqr == 0:
-                return [(x - q25) for x in scores]
-            return [(x - q25) / iqr for x in scores]
-        elif method == "zscore":
-            # 标准Z-score归一化
-            mean = np.mean(scores)
-            std = np.std(scores) + 1e-9
-            return [(x - mean) / std for x in scores]
-        else:
-            return self._safe_normalize(scores)
-
-    def _normalize_scores(self, results: List[Dict]) -> List[Dict]:
-        # 按类型分组
-        vector_scores = [res["score"] for res in results if res["type"] == "vector"]
-        bm25_scores = [res["score"] for res in results if res["type"] == "bm25"]
-
-        # 差异化处理
-        vector_norm = self._distribution_aware_normalize(vector_scores, method="zscore")
-        bm25_norm = self._distribution_aware_normalize(bm25_scores, method="robust")
-
-        # 合并结果
-        idx_vec = 0
-        idx_bm25 = 0
-        for res in results:
-            if res["type"] == "vector":
-                res["norm_score"] = vector_norm[idx_vec]
-                idx_vec += 1
-            else:
-                res["norm_score"] = bm25_norm[idx_bm25]
-                idx_bm25 += 1
-        for res in results:
-            # Sigmoid压缩到(0,1)区间
-            res["norm_score"] = 1 / (1 + np.exp(-res["norm_score"]))
-
-        for res in results:
-            logger.info(
-                f"📊 归一化分数: {res['source']} - "
-                f"原始分数: {res['score']:.4f} - "
-                f"归一化分数: {res['norm_score']:.4f}"
-            )
-        return results
 
     def _rerank_documents(self, results: List[Dict], question: str) -> List[Dict]:
         """使用重排序模型优化检索结果
@@ -541,7 +487,7 @@ class RAGSystem:
                 pairs,
                 padding=True,  # 自动填充
                 truncation=True,  # 自动截断
-                max_length=512,  # 最大长度限制
+                max_length=2048,  # 最大长度限制
                 return_tensors="pt"  # 返回PyTorch张量
             )
 
@@ -557,11 +503,14 @@ class RAGSystem:
 
             # 合并分数
             for res, rerank_score in zip(results, rerank_scores):
+                # 打印各个分数
+                
                 # 加权平均策略
                 final_score = (
                         self.config.retrieval_weight * res["score"] +
                         self.config.rerank_weight * rerank_score
                 )
+                
                 res.update({
                     "rerank_score": rerank_score,
                     "final_score": final_score
@@ -679,6 +628,7 @@ class RAGSystem:
             final_results = [
                 res for res in reranked
                 if res["final_score"] >= self.config.similarity_threshold
+                and len(res["doc"].page_content.strip()) >= 12  # 添加长度检查
             ]
             final_results = sorted(
                 final_results,
@@ -690,12 +640,11 @@ class RAGSystem:
             logger.info("📊 最终检索结果分数:")
             for i, res in enumerate(final_results, 1):
                 logger.info(
-                    f"文档 {i}: {res['source']}\n"
+                    f"\n文档 {i}: {res['source']}\n"
                     f"- 检索类型: {res['type']}\n"
                     f"- 原始分数: {res['raw_score']:.4f}\n"
                     f"- 重排序分数: {res['rerank_score']:.4f}\n"
                     f"- 最终分数: {res['final_score']:.4f}\n"
-                    f"- 内容预览: {res['doc'].page_content[:100]}..."
                 )
 
             # 提取文档和分数信息

@@ -7,7 +7,7 @@ import random
 random.seed(42)
 
 # 定义输入和输出文件路径
-input_file = "build_lora_data/chemical_safety_deepseek_3.json"
+input_file = "build_lora_data/chemical_safety_deepseek_10k.json"
 train_file = "build_lora_data/train_data.json"
 test_file = "build_lora_data/test_data.json"
 
@@ -27,7 +27,7 @@ else:
             print(f"数据总量: {len(data)} 条")
 
             # 首先将数据分为 训练+验证+一部分测试 (90%) 和 测试 (10%)
-            train_data, test_data = train_test_split(data, test_size=0.2, random_state=42)
+            train_data, test_data = train_test_split(data, test_size=0.1, random_state=42)
             
             # 然后将 训练+验证 数据分为 训练 (70/90 = 77.8%) 和 验证 (20/90 = 22.2%)
             
