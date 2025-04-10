@@ -152,7 +152,7 @@ class RAGSystem:
             logger.info("🚀 正在初始化Ollama模型...")
             # 创建OllamaLLM实例
             self.llm = OllamaLLM(
-                model="deepseek_8B.gguf:latest",  # 模型名称
+                model="deepseek-r1:8b",  # 模型名称
                 #deepseek_8b_lora:latest    1513b8b198dc    8.5 GB    59 seconds ago
                 # deepseek-r1:8b             28f8fd6cdc67    4.9 GB    46 minutes ago
                 # deepseek-r1:14b            ea35dfe18182    9.0 GB    29 hours ago
@@ -345,16 +345,18 @@ class RAGSystem:
             if doc_id not in unique_vector_results or norm_score > unique_vector_results[doc_id][1]:
                 unique_vector_results[doc_id] = (doc, norm_score)
         
-        # 将去重后的结果添加到结果列表
+        # 对向量检索结果进行阈值过滤
+        filtered_vector_results = []
         for doc, score in unique_vector_results.values():
-            results.append({
-                "doc": doc,
-                "score": score * vector_weight,  # 应用动态权重
-                "raw_score": score,
-                "type": "vector",
-                "source": doc.metadata.get("source", "unknown")
-            })
-            logger.info(f"🔍 向量检索结果: {doc.metadata['source']} - 分数: {score:.4f}")
+            if score >= self.config.similarity_threshold:  # 使用统一的相似度阈值
+                filtered_vector_results.append({
+                    "doc": doc,
+                    "score": score * vector_weight,  # 应用动态权重
+                    "raw_score": score,
+                    "type": "vector",
+                    "source": doc.metadata.get("source", "unknown")
+                })
+                logger.info(f"🔍 向量检索结果: {doc.metadata['source']} - 分数: {score:.4f}")
 
         # BM25检索部分
         all_bm25_scores = {}
@@ -371,21 +373,37 @@ class RAGSystem:
         top_bm25_indices = np.argsort(list(all_bm25_scores.values()))[-self.config.bm25_top_k:][::-1]
         top_bm25_indices = [list(all_bm25_scores.keys())[i] for i in top_bm25_indices]
 
-        for idx in top_bm25_indices:
-            doc = Document(
-                page_content=self.bm25_docs[idx],
-                metadata=self.doc_metadata[idx]
-            )
-            
-            bm25_score = float(all_bm25_scores[idx])
-            results.append({
-                "doc": doc,
-                "score": bm25_score * bm25_weight,  # 应用动态权重
-                "raw_score": bm25_score,
-                "type": "bm25",
-                "source": doc.metadata.get("source", "unknown")
-            })
-            logger.info(f"🔍 BM25检索结果: {doc.metadata['source']} - 分数: {bm25_score:.4f}")
+        # 对BM25分数进行归一化处理
+        bm25_scores = [all_bm25_scores[idx] for idx in top_bm25_indices]
+        if bm25_scores:  # 确保有分数可以归一化
+            min_score = min(bm25_scores)
+            max_score = max(bm25_scores)
+            if max_score > min_score:  # 避免除以0
+                normalized_bm25_scores = [(score - min_score) / (max_score - min_score) for score in bm25_scores]
+            else:
+                normalized_bm25_scores = [1.0] * len(bm25_scores)  # 如果所有分数相同，归一化为1
+        else:
+            normalized_bm25_scores = []
+
+        # 对BM25检索结果进行阈值过滤
+        filtered_bm25_results = []
+        for idx, norm_score in zip(top_bm25_indices, normalized_bm25_scores):
+            if norm_score >= self.config.similarity_threshold:  # 使用统一的相似度阈值
+                doc = Document(
+                    page_content=self.bm25_docs[idx],
+                    metadata=self.doc_metadata[idx]
+                )
+                filtered_bm25_results.append({
+                    "doc": doc,
+                    "score": norm_score * bm25_weight,  # 应用动态权重
+                    "raw_score": norm_score,
+                    "type": "bm25",
+                    "source": doc.metadata.get("source", "unknown")
+                })
+                logger.info(f"🔍 BM25检索结果: {doc.metadata['source']} - 分数: {norm_score:.4f}")
+
+        # 合并过滤后的结果
+        results = filtered_vector_results + filtered_bm25_results
 
         logger.info(f"📚 混合检索后得到{len(results)}篇文档")
         return results
@@ -660,15 +678,15 @@ class RAGSystem:
             reranked = self._rerank_documents(norm_results, question)
 
             # 根据阈值过滤结果
-            filtered = [
+            final_results = [
                 res for res in reranked
                 if res["final_score"] >= self.config.similarity_threshold
             ]
             final_results = sorted(
-                filtered,
+                final_results,
                 key=lambda x: x["final_score"],
                 reverse=True
-            )[:self.config.final_top_k]
+            )
             # 提取文档和分数信息
             docs = [res["doc"] for res in final_results]
             score_info = [{
