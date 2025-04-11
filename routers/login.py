@@ -7,6 +7,9 @@ from pydantic import BaseModel
 from database import execute_query, execute_update
 # 导入密码哈希处理模块
 import hashlib
+# 导入生成令牌所需的模块
+import uuid
+import datetime
 # 引入可选类型
 from typing import Optional
 
@@ -43,9 +46,10 @@ async def login(request: LoginRequest):
         # 根据登录模式选择不同的验证方式
         if request.mode == 'code':
             # 验证码登录
-            # 执行数据库查询，验证验证码是否正确且未被使用，且是否在有效期内（15分钟内）
+            # 执行数据库查询，验证验证码是否正确且未被使用，且是否在有效期内
             result = execute_query(
-                """SELECT * FROM sms_codes WHERE mobile = %s AND code = %s AND is_used = FALSE AND created_at > NOW() - INTERVAL 15 MINUTE ORDER BY created_at DESC LIMIT 1""",
+                """SELECT * FROM verification_codes WHERE mobile = %s AND code = %s AND is_used = 0 
+                   AND purpose = 'login' AND expire_at > NOW() ORDER BY created_at DESC LIMIT 1""",
                 (request.mobile, request.code))
 
             # 如果没有找到符合条件的验证码，返回错误信息
@@ -55,7 +59,7 @@ async def login(request: LoginRequest):
             # 获取验证码记录
             code_record = result[0]
             # 标记该验证码为已使用
-            execute_update("""UPDATE sms_codes SET is_used = TRUE WHERE id = %s""", (code_record['id'],))
+            execute_update("""UPDATE verification_codes SET is_used = 1 WHERE id = %s""", (code_record['id'],))
         else:
             # 密码登录
             # 查询用户是否存在并验证密码
@@ -74,20 +78,31 @@ async def login(request: LoginRequest):
         if not user_result:
             # 如果用户不存在，则进行自动注册（仅在验证码登录模式下）
             if request.mode == 'code':
-                execute_update("""INSERT INTO users (mobile) VALUES (%s)""", (request.mobile,))
-                # 获取新插入的用户 ID
-                user_id = execute_query("SELECT LAST_INSERT_ID()")[0]['LAST_INSERT_ID()']
+                # 使用默认主题偏好设置创建用户
+                user_id = execute_update(
+                    """INSERT INTO users (mobile, theme_preference, register_time) VALUES (%s, 'light', NOW())""", 
+                    (request.mobile,))
             else:
                 # 密码登录模式下，用户不存在则返回错误
                 return {"code": 400, "message": "用户不存在，请先注册"}
         else:
             # 如果用户已存在，获取用户 ID
-            user_id = user_result[0]['id']
-            # 更新最后登录时间
-            execute_update("""UPDATE users SET last_login = NOW() WHERE id = %s""", (user_id,))
+            user_id = user_result[0]['user_id']
+            # 更新最后登录时间和登录次数
+            execute_update(
+                """UPDATE users SET last_login_time = NOW(), login_count = login_count + 1 WHERE user_id = %s""", 
+                (user_id,))
 
-        # 生成token（简单示例，实际应使用JWT等更安全的方式）
-        token = f"{user_id}_{hashlib.sha256(f'{user_id}_{request.mobile}'.encode()).hexdigest()}"
+        # 生成token并存入数据库
+        token = str(uuid.uuid4())
+        # 设置token过期时间（7天后）
+        expire_at = datetime.datetime.now() + datetime.timedelta(days=7)
+        
+        # 记录用户登录令牌
+        execute_update(
+            """INSERT INTO user_tokens (user_id, token, created_at, expire_at, is_valid) 
+               VALUES (%s, %s, NOW(), %s, 1)""",
+            (user_id, token, expire_at))
         
         # 返回成功登录的响应，并返回用户ID和token
         return {
@@ -101,18 +116,70 @@ async def login(request: LoginRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 获取当前用户的函数
+# 获取当前用户的依赖函数
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
-        # 从 token 中提取用户 ID
+        # 从 Authorization header 中获取 token
         token = credentials.credentials
-        user_id = int(token.split('_')[0])
+        
+        # 验证token是否有效
+        token_result = execute_query(
+            """SELECT * FROM user_tokens 
+               WHERE token = %s AND is_valid = 1 AND expire_at > NOW() LIMIT 1""", 
+            (token,)
+        )
+        
+        if not token_result:
+            raise HTTPException(status_code=401, detail="无效的令牌或令牌已过期")
+        
+        # 获取用户ID
+        user_id = token_result[0]['user_id']
         
         # 验证用户是否存在
-        user = execute_query("SELECT * FROM users WHERE id = %s", (user_id,))
+        user = execute_query("SELECT * FROM users WHERE user_id = %s AND status = 1", (user_id,))
         if not user:
-            raise HTTPException(status_code=401, detail="用户不存在")
+            raise HTTPException(status_code=401, detail="用户不存在或已被禁用")
             
         return user_id
     except Exception as e:
-        raise HTTPException(status_code=401, detail="无效的认证信息")
+        raise HTTPException(status_code=401, detail=f"认证失败: {str(e)}")
+
+# 获取用户信息的路由
+@router.get("/user/info/")
+async def get_user_info(user_id: int = Depends(get_current_user)):
+    try:
+        # 查询用户信息
+        user_info = execute_query("SELECT user_id, mobile, theme_preference FROM users WHERE user_id = %s", (user_id,))
+        
+        if not user_info:
+            raise HTTPException(status_code=404, detail="未找到用户信息")
+        
+        return {
+            "code": 200,
+            "message": "获取用户信息成功",
+            "data": user_info[0]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 用户登出的路由
+@router.post("/logout/")
+async def logout(user_id: int = Depends(get_current_user), credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        # 获取当前token
+        token = credentials.credentials
+        
+        # 将token设为无效
+        execute_update(
+            """UPDATE user_tokens SET is_valid = 0 WHERE token = %s""", 
+            (token,)
+        )
+        
+        return {
+            "code": 200,
+            "message": "登出成功"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -59,6 +59,13 @@ def execute_query(query: str, params: tuple = ()):
 def execute_update(query: str, params: tuple = ()):
     """
     执行更新操作（如插入、更新、删除）。
+    
+    Args:
+        query (str): SQL更新语句
+        params (tuple): 更新参数
+        
+    Returns:
+        int: 对于INSERT操作返回lastrowid，对于其他操作返回受影响的行数
     """
     conn = None
     cursor = None
@@ -71,9 +78,19 @@ def execute_update(query: str, params: tuple = ()):
         cursor.execute(query, params)
         # 提交更改到数据库
         conn.commit()
+        
+        # 根据操作类型返回不同的结果
+        if query.strip().upper().startswith('INSERT'):
+            # 对于INSERT操作，返回自增ID
+            return cursor.lastrowid
+        else:
+            # 对于其他操作，返回受影响的行数
+            return cursor.rowcount
+            
     except mysql.connector.Error as err:
         # 如果更新操作失败，回滚事务
-        conn.rollback()
+        if conn:
+            conn.rollback()
         # 抛出 HTTP 500 错误，附带错误信息
         raise HTTPException(status_code=500, detail=f"数据库更新失败: {err}")
     finally:

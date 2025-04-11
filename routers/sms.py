@@ -10,67 +10,114 @@ from config import URL, APPCODE, SMS_SIGN_ID, TEMPLATE_ID,APPKEY,APPSECRET
 from database import execute_update, execute_query
 # 导入可选类型
 from typing import Optional
+# 引入Pydantic中的BaseModel类，用于定义请求体的数据结构和验证
+from pydantic import BaseModel
+# 引入时间模块，用于处理时间
+import datetime
 
 # 初始化一个 APIRouter 实例，用于定义路由
 router = APIRouter()
 
+# 定义请求体的模型，使用Pydantic的BaseModel来验证请求的数据
+class SmsRequest(BaseModel):
+    # 手机号码字段，必须提供
+    mobile: str
+    # 验证码用途，可选字段，默认为登录
+    purpose: str = 'login'
 
 # 定义一个 POST 请求的路由，路径为 "/send_sms/"
 @router.post("/send_sms/")
-# 异步处理函数，接收 mobile（手机号码）和 type（验证码类型）作为请求体参数
-async def send_sms(mobile: str = Body(..., embed=True), type: Optional[str] = Body("login", embed=True)):
+# 异步处理函数，接收 SmsRequest 类型的请求体
+async def send_sms(request: SmsRequest):
     try:
         # 验证手机号格式
-        if not mobile or len(mobile) != 11:
-            return {"code": 400, "message": "请提供有效的11位手机号码"}
-        
-        # 对于注册类型，检查手机号是否已注册
-        if type == "register":
-            user_exists = execute_query("""SELECT id FROM users WHERE mobile = %s LIMIT 1""", (mobile,))
-            if user_exists:
-                return {"code": 400, "message": "该手机号已注册，请直接登录"}
-        
-        # 生成一个 6 位的随机验证码
-        code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
-        # 设置短信模板中的参数，**code** 表示验证码，**minute** 表示有效时间（15分钟）
-        param = f"code:{code}"  # 使用动态生成的验证码
-        # 构造发送短信的请求数据
-        data = {
-            "phone_number": mobile,  # 目标手机号码
-            "content": param,  # 短信模板的参数
-            "template_id":"CST_ptdie100"
-        }
-        # 设置请求头，包含 API 密钥等信息
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Authorization": "APPCODE " + APPCODE  # 使用配置的 APPCODE 进行身份验证
-        }
-        
-        # 清理过期的验证码数据：删除超过 15 分钟的验证码记录
-        execute_update("""DELETE FROM sms_codes WHERE mobile = %s AND created_at < NOW() - INTERVAL 15 MINUTE""",
-                       (mobile,))
-                       
-        # 限制验证码发送频率，一分钟内只能发送一次
+        if not is_valid_mobile(request.mobile):
+            return {"code": 400, "message": "无效的手机号码格式"}
+
+        # 验证用途是否有效
+        valid_purposes = ['login', 'register', 'reset_password']
+        if request.purpose not in valid_purposes:
+            return {"code": 400, "message": f"无效的验证码用途，有效用途为: {', '.join(valid_purposes)}"}
+
+        # 检查是否存在1分钟内发送过的验证码
         recent_code = execute_query(
-            """SELECT * FROM sms_codes WHERE mobile = %s AND created_at > NOW() - INTERVAL 1 MINUTE ORDER BY created_at DESC LIMIT 1""",
-            (mobile,))
+            """SELECT * FROM verification_codes 
+               WHERE mobile = %s AND purpose = %s AND created_at > DATE_SUB(NOW(), INTERVAL 1 MINUTE) 
+               LIMIT 1""",
+            (request.mobile, request.purpose)
+        )
+        
         if recent_code:
             return {"code": 429, "message": "发送过于频繁，请稍后再试"}
-                   
-        # 插入新生成的验证码到数据库，带上类型
-        execute_update("""INSERT INTO sms_codes (mobile, code, type) VALUES (%s, %s, %s)""", (mobile, code, type))
 
+        # 生成6位随机数字验证码
+        verification_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+        
+        # 设置验证码过期时间（15分钟后）
+        expire_at = datetime.datetime.now() + datetime.timedelta(minutes=15)
+        
+        # 将验证码插入数据库
+        execute_update(
+            """INSERT INTO verification_codes (mobile, code, purpose, created_at, expire_at, is_used) 
+               VALUES (%s, %s, %s, NOW(), %s, 0)""",
+            (request.mobile, verification_code, request.purpose, expire_at)
+        )
+
+        # 构造发送短信的请求数据
+        data = {
+            "phone_number": request.mobile,
+            "content": f"code:{verification_code}",
+            "template_id": TEMPLATE_ID
+        }
+        
+        # 设置请求头
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": "APPCODE " + APPCODE
+        }
+        
         # 发送短信请求
         response = requests.post(URL, headers=headers, data=data)
-        # 检查请求是否成功，若失败则抛出异常
         response.raise_for_status()
-
+        
         # 返回成功响应
-        return {"code": 200, "message": "验证码发送成功"}
+        return {
+            "code": 200, 
+            "message": "验证码已发送"
+        }
 
-    # 捕获请求异常，返回 500 错误并附带错误信息
     except requests.RequestException as err:
         raise HTTPException(status_code=500, detail=f"短信发送请求失败: {err}")
-    # 捕获其他类型的异常，返回 500 错误并附带错误信息
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 验证手机号格式是否正确的函数
+def is_valid_mobile(mobile):
+    """
+    验证手机号格式是否正确
+    """
+    # 简单验证，实际应根据需求调整
+    return mobile.isdigit() and len(mobile) == 11 and mobile.startswith('1')
+
+# 检查验证码路由，用于验证用户输入的验证码是否正确
+@router.post("/verify_code/")
+async def verify_code(mobile: str, code: str, purpose: str = 'login'):
+    try:
+        # 查询是否存在有效的验证码
+        result = execute_query(
+            """SELECT * FROM verification_codes 
+               WHERE mobile = %s AND code = %s AND purpose = %s AND is_used = 0 
+               AND expire_at > NOW() ORDER BY created_at DESC LIMIT 1""",
+            (mobile, code, purpose)
+        )
+        
+        if not result:
+            return {"code": 400, "message": "验证码错误或已过期"}
+        
+        # 验证码正确，但不标记为已使用
+        # 在实际登录或注册过程中再标记为已使用
+        
+        return {"code": 200, "message": "验证码正确"}
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
