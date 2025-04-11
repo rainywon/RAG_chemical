@@ -45,6 +45,27 @@ class RetrievalEvaluator:
         self.k_value = 5
         # 初始化评估记录，用于生成Markdown报告
         self.evaluation_records = []
+        
+        # 获取项目根目录
+        root_dir = Path(__file__).resolve().parent.parent
+        # 创建结果目录
+        self.result_dir = root_dir / "evaluate" / "results"
+        self.result_dir.mkdir(exist_ok=True, parents=True)
+        
+        # 初始化查询结果文件
+        self.query_results_file = self.result_dir / "query_results.json"
+        logger.info(f"查询结果将保存至: {self.query_results_file}")
+        
+        # 如果文件已存在，先清空它
+        if self.query_results_file.exists():
+            logger.info("发现已存在的查询结果文件，将覆盖它")
+            with open(self.query_results_file, 'w', encoding='utf-8') as f:
+                f.write('[\n')  # 开始JSON数组
+        else:
+            logger.info("创建新的查询结果文件")
+            with open(self.query_results_file, 'w', encoding='utf-8') as f:
+                f.write('[\n')  # 开始JSON数组
+        self.is_first_query = True
         logger.info("检索评估器初始化完成")
     
     def _normalize_path(self, path):
@@ -91,6 +112,47 @@ class RetrievalEvaluator:
         
         return False
     
+    def _save_query_results(self, query_index: int, query: str, retrieved_docs: List[Dict], relevant_docs: List[str]):
+        """保存查询结果到文件
+        
+        Args:
+            query_index: 查询索引
+            query: 查询问题
+            retrieved_docs: 检索到的文档列表
+            relevant_docs: 相关文档列表
+        """
+        result_data = {
+            "query_index": query_index,
+            "query": query,
+            "retrieved_docs": retrieved_docs,
+            "relevant_docs": relevant_docs,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        try:
+            # 追加结果到文件
+            with open(self.query_results_file, 'a', encoding='utf-8') as f:
+                if not self.is_first_query:
+                    f.write(',\n')  # 如果不是第一个查询，添加逗号分隔符
+                json.dump(result_data, f, ensure_ascii=False, indent=2)
+                self.is_first_query = False
+            
+            logger.info(f"查询 {query_index} 的结果已保存至文件: {self.query_results_file}")
+        except Exception as e:
+            logger.error(f"保存查询 {query_index} 结果时出错: {str(e)}")
+            logger.error(f"文件路径: {self.query_results_file}")
+            raise
+    
+    def __del__(self):
+        """析构函数，确保JSON文件正确关闭"""
+        try:
+            if hasattr(self, 'query_results_file') and self.query_results_file.exists():
+                with open(self.query_results_file, 'a', encoding='utf-8') as f:
+                    f.write('\n]')  # 结束JSON数组
+                logger.info(f"查询结果文件已正确关闭: {self.query_results_file}")
+        except Exception as e:
+            logger.error(f"关闭查询结果文件时出错: {str(e)}")
+    
     def evaluate_hit_rate(self, test_data: List[Dict]) -> Dict[str, float]:
         """评估命中率 - 检索结果中是否包含至少一个相关文档
         
@@ -128,14 +190,25 @@ class RetrievalEvaluator:
                 retrieved_scores = [info.get("final_score", 0) for info in score_info] if score_info else [0] * len(retrieved_docs)
                 
                 # 记录检索到的文档
+                retrieved_docs_info = []
                 for i, (doc_path, score) in enumerate(zip(retrieved_paths, retrieved_scores)):
                     is_relevant = any(self._check_path_match(doc_path, ref_doc) for ref_doc in relevant_docs)
-                    record["retrieved_docs"].append({
+                    doc_info = {
                         "rank": i + 1,
                         "path": doc_path,
                         "score": score,
                         "is_relevant": is_relevant
-                    })
+                    }
+                    record["retrieved_docs"].append(doc_info)
+                    retrieved_docs_info.append(doc_info)
+                
+                # 保存查询结果
+                self._save_query_results(
+                    query_index=idx + 1,
+                    query=query,
+                    retrieved_docs=retrieved_docs_info,
+                    relevant_docs=relevant_docs
+                )
                 
                 # 计算K=5的命中情况
                 if len(retrieved_paths) >= self.k_value:
@@ -168,11 +241,15 @@ class RetrievalEvaluator:
                 record["error"] = str(e)
             
             self.evaluation_records.append(record)
+            
+            # 打印当前查询结果
+            logger.info(f"查询 {record['query_index']} 结果: {'命中' if record['hit_result'] else '未命中'}")
         
         # 计算命中率
         hit_rate = hits / total if total > 0 else 0
         
         logger.info(f"命中率评估结果: hit@{self.k_value} = {hit_rate:.4f}")
+        
         return {"hit@5": hit_rate}
     
     def evaluate_mrr(self, test_data: List[Dict]) -> float:
@@ -227,6 +304,9 @@ class RetrievalEvaluator:
                 
                 record["mrr_result"] = rank
                 reciprocal_ranks.append(rank)
+                
+                # 打印当前查询MRR结果
+                logger.info(f"查询 {record['query_index']} MRR: {rank:.4f}")
             
             except Exception as e:
                 logger.error(f"处理查询时出错: {query}, 错误: {str(e)}")
@@ -236,6 +316,7 @@ class RetrievalEvaluator:
         # 计算MRR
         mrr = np.mean(reciprocal_ranks) if reciprocal_ranks else 0
         logger.info(f"MRR评估结果: {mrr:.4f}")
+        
         return mrr
     
     def generate_markdown_report(self, results):
@@ -310,11 +391,26 @@ class RetrievalEvaluator:
             Dict[str, Any]: 评估结果
         """
         try:
+            # 将路径转换为Path对象，确保处理相对路径
+            test_data_path = Path(test_data_path)
+            
+            # 检查文件是否存在
+            if not test_data_path.exists():
+                error_msg = f"测试数据文件不存在: {test_data_path}"
+                logger.error(error_msg)
+                
+                return {
+                    "error": error_msg,
+                    "hit_rate": {"hit@5": 0.0},
+                    "mrr": 0.0
+                }
+            
             # 加载测试数据
+            logger.info(f"从文件加载测试数据: {test_data_path}")
             with open(test_data_path, 'r', encoding='utf-8') as f:
                 test_data = json.load(f)
             
-            logger.info(f"加载了{len(test_data)}条测试数据")
+            logger.info(f"成功加载了 {len(test_data)} 条测试数据")
             
             # 运行评估
             hit_rates = self.evaluate_hit_rate(test_data)
@@ -328,10 +424,21 @@ class RetrievalEvaluator:
             
             return results
             
+        except json.JSONDecodeError as je:
+            error_msg = f"测试数据文件格式错误: {str(je)}"
+            logger.error(error_msg)
+            
+            return {
+                "error": error_msg,
+                "hit_rate": {"hit@5": 0.0},
+                "mrr": 0.0
+            }
         except Exception as e:
             logger.error(f"评估过程出错: {str(e)}")
             import traceback
-            logger.error(traceback.format_exc())
+            trace = traceback.format_exc()
+            logger.error(trace)
+            
             return {
                 "error": str(e),
                 "hit_rate": {"hit@5": 0.0},
@@ -345,12 +452,49 @@ if __name__ == "__main__":
     # 创建评估器
     evaluator = RetrievalEvaluator(config)
     
+    # 获取项目根目录的绝对路径
+    root_dir = Path(__file__).resolve().parent.parent
+    
+    # 运行评估 - 使用绝对路径
+    test_data_path = str(root_dir / "evaluate" / "test_data" / "retrieval_test_data.json")
+    logger.info(f"使用测试数据路径: {test_data_path}")
+    
+    # 检查文件是否存在
+    if not os.path.exists(test_data_path):
+        logger.error(f"测试数据文件不存在: {test_data_path}")
+        logger.info("尝试创建示例测试数据文件...")
+        
+        # 确保目录存在
+        os.makedirs(os.path.dirname(test_data_path), exist_ok=True)
+        
+        # 创建一个简单的测试数据文件
+        example_data = [
+            {
+                "question": "化工厂爆炸应急预案",
+                "relevant_docs": [
+                    "docs/emergency/explosion.pdf",
+                    "docs/safety/chemical_plant_emergency.docx"
+                ]
+            },
+            {
+                "question": "化学品安全操作规程",
+                "relevant_docs": [
+                    "docs/safety/chemical_handling.pdf",
+                    "docs/manual/safety_procedures.docx"
+                ]
+            }
+        ]
+        
+        with open(test_data_path, 'w', encoding='utf-8') as f:
+            json.dump(example_data, f, ensure_ascii=False, indent=2)
+        
+        logger.info(f"已创建示例测试数据文件: {test_data_path}")
+    
     # 运行评估
-    test_data_path = "evaluate/test_data/retrieval_test_data.json"
     results = evaluator.run_evaluation(test_data_path)
     
     # 保存结果
-    result_dir = Path("evaluate/results")
+    result_dir = root_dir / "evaluate" / "results"
     result_dir.mkdir(exist_ok=True, parents=True)
     
     # 保存JSON结果

@@ -83,7 +83,7 @@ class Config:
         self.similarity_threshold = 0.5  # 相似度过滤阈值（低于此值的文档被丢弃）
         self.vector_similarity_threshold = 0.6  # 向量检索的相似度阈值
         self.bm25_similarity_threshold = 0.5  # BM25检索的相似度阈值
-        self.final_top_k = 20  # 最终返回给大模型的最相关文档数量
+        self.final_top_k = 10  # 最终返回给大模型的最相关文档数量
 
         # ████████ 详细输出配置 ████████
         self.print_detailed_chunks = False  # 启用详细输出

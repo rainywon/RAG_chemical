@@ -164,8 +164,12 @@ async def create_chat_message(request: ChatMessageCreate):
         # 生成消息ID
         message_id = str(uuid.uuid4())
         
-        # 转换 references 为 JSON 字符串
-        references_json = request.references or []
+        # 处理可能为None的字段
+        parent_id = request.parent_id if request.parent_id is not None else None
+        paired_ai_id = request.paired_ai_id if request.paired_ai_id is not None else None
+        references = request.references if request.references is not None else []
+        question = request.question if request.question is not None else ""
+        is_loading = request.is_loading if request.is_loading is not None else False
         
         # 创建新消息
         execute_update(
@@ -178,11 +182,11 @@ async def create_chat_message(request: ChatMessageCreate):
                 request.session_id, 
                 request.message_type, 
                 request.content, 
-                request.parent_id, 
-                request.paired_ai_id,
-                references_json,
-                request.question,
-                request.is_loading
+                parent_id, 
+                paired_ai_id,
+                references,
+                question,
+                is_loading
             )
         )
         
@@ -208,8 +212,12 @@ async def update_chat_message(message_id: str, request: ChatMessageCreate):
         if not message:
             raise HTTPException(status_code=404, detail="消息不存在")
         
-        # 转换 references 为 JSON 字符串
-        references_json = request.references or []
+        # 处理可能为None的字段
+        parent_id = request.parent_id if request.parent_id is not None else None
+        paired_ai_id = request.paired_ai_id if request.paired_ai_id is not None else None
+        references = request.references if request.references is not None else []
+        question = request.question if request.question is not None else ""
+        is_loading = request.is_loading if request.is_loading is not None else False
         
         # 更新消息
         execute_update(
@@ -219,11 +227,11 @@ async def update_chat_message(message_id: str, request: ChatMessageCreate):
                WHERE id = %s""",
             (
                 request.content, 
-                request.parent_id, 
-                request.paired_ai_id,
-                references_json,
-                request.question,
-                request.is_loading,
+                parent_id, 
+                paired_ai_id,
+                references,
+                question,
+                is_loading,
                 message_id
             )
         )
