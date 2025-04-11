@@ -71,7 +71,7 @@ class Config:
 
         # ████████ Ollama大模型配置 ████████
         self.ollama_base_url = "http://localhost:11434"  # Ollama服务地址
-        self.llm_max_tokens = 8192  # 生成文本的最大token数限制
+        self.llm_max_tokens = 16384  # 生成文本的最大token数限制
         self.llm_temperature = 0.5  # 温度参数（0-1，控制生成随机性）
 
         # ████████ RAG检索配置 ████████
