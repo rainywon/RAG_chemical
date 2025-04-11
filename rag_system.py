@@ -152,7 +152,7 @@ class RAGSystem:
             logger.info("🚀 正在初始化Ollama模型...")
             # 创建OllamaLLM实例
             self.llm = OllamaLLM(
-                model="deepseek-r1:8b",  # 模型名称
+                model="deepseek_8B:latest",  # 模型名称
                 #deepseek_8b_lora:latest    1513b8b198dc    8.5 GB    59 seconds ago
                 # deepseek-r1:8b             28f8fd6cdc67    4.9 GB    46 minutes ago
                 # deepseek-r1:14b            ea35dfe18182    9.0 GB    29 hours ago
@@ -325,7 +325,6 @@ class RAGSystem:
         
         # 动态确定检索策略权重
         vector_weight, bm25_weight = self._determine_retrieval_weights(question)
-        logger.info(f"🔀 动态权重: 向量检索={vector_weight:.2f}, BM25检索={bm25_weight:.2f}")
 
         # 向量检索部分
         all_vector_results = []
@@ -356,7 +355,7 @@ class RAGSystem:
                     "type": "vector",
                     "source": doc.metadata.get("source", "unknown")
                 })
-                logger.info(f"🔍 向量检索结果: {doc.metadata['source']} - 分数: {score:.4f}")
+                # logger.info(f"🔍 向量检索结果: {doc.metadata['source']} - 分数: {score:.4f}")
 
         # BM25检索部分
         all_bm25_scores = {}
@@ -406,7 +405,7 @@ class RAGSystem:
                     "type": "bm25",
                     "source": doc.metadata.get("source", "unknown")
                 })
-                logger.info(f"🔍 BM25检索结果: {doc.metadata['source']} - 原始分数: {all_bm25_scores[idx]:.4f} - 归一化分数: {norm_score:.4f}")
+                # logger.info(f"🔍 BM25检索结果: {doc.metadata['source']} - 原始分数: {all_bm25_scores[idx]:.4f} - 归一化分数: {norm_score:.4f}")
 
         # 合并过滤后的结果
         results = filtered_vector_results + filtered_bm25_results
@@ -637,14 +636,15 @@ class RAGSystem:
             )
 
             # 输出最终分数信息
-            logger.info("📊 最终检索结果分数:")
+            logger.info(f"📊 最终文档数目:{len(final_results)}篇")
+            logger.info("📊 最终检索结果:")
             for i, res in enumerate(final_results, 1):
                 logger.info(
-                    f"\n文档 {i}: {res['source']}\n"
-                    f"- 检索类型: {res['type']}\n"
-                    f"- 原始分数: {res['raw_score']:.4f}\n"
-                    f"- 重排序分数: {res['rerank_score']:.4f}\n"
-                    f"- 最终分数: {res['final_score']:.4f}\n"
+                    f"文档 {i}: {res['source']}\n"
+                    # f"- 检索类型: {res['type']}\n"
+                    # f"- 原始分数: {res['raw_score']:.4f}\n"
+                    # f"- 重排序分数: {res['rerank_score']:.4f}\n"
+                    # f"- 最终分数: {res['final_score']:.4f}\n"
                 )
 
             # 提取文档和分数信息
