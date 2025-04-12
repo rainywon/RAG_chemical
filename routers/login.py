@@ -104,11 +104,26 @@ async def login(request: LoginRequest):
         # 设置token过期时间（7天后）
         expire_at = datetime.datetime.now() + datetime.timedelta(days=7)
         
-        # 记录用户登录令牌
-        execute_update(
-            """INSERT INTO user_tokens (user_id, token, created_at, expire_at, is_valid) 
-               VALUES (%s, %s, NOW(), %s, 1)""",
-            (user_id, token, expire_at))
+        # 先检查该用户是否已有token记录
+        existing_token = execute_query(
+            """SELECT id FROM user_tokens WHERE user_id = %s AND is_valid = 1 LIMIT 1""",
+            (user_id,)
+        )
+        
+        if existing_token:
+            # 如果已有token，则更新token信息
+            execute_update(
+                """UPDATE user_tokens SET token = %s, created_at = NOW(), expire_at = %s 
+                   WHERE user_id = %s AND is_valid = 1""",
+                (token, expire_at, user_id)
+            )
+        else:
+            # 如果没有token，则创建新的token记录
+            execute_update(
+                """INSERT INTO user_tokens (user_id, token, created_at, expire_at, is_valid) 
+                   VALUES (%s, %s, NOW(), %s, 1)""",
+                (user_id, token, expire_at)
+            )
         
         # 返回成功登录的响应，并返回用户ID和token
         return {
