@@ -18,6 +18,7 @@ router = APIRouter()
 class UserStatusRequest(BaseModel):
     user_id: int
     status: int  # 0-禁用, 1-正常
+    admin_id: Optional[int] = None  # 添加管理员ID字段
 
 # 获取用户列表接口
 @router.get("/admin/users", tags=["用户管理"])
@@ -28,6 +29,7 @@ async def get_users(
     status: Optional[str] = Query(None, description="状态筛选"),
     start_date: Optional[str] = Query(None, description="注册开始日期"),
     end_date: Optional[str] = Query(None, description="注册结束日期"),
+    admin_id: Optional[int] = Query(None, description="管理员ID")
 ):
     """
     获取用户列表，支持分页和筛选
@@ -81,6 +83,18 @@ async def get_users(
             user['register_time'] = user['register_time'].strftime("%Y-%m-%d %H:%M:%S") if user['register_time'] else ""
             user['last_login_time'] = user['last_login_time'].strftime("%Y-%m-%d %H:%M:%S") if user['last_login_time'] else ""
         
+        # 记录操作日志 (如果提供了管理员ID)
+        if admin_id:
+            try:
+                execute_update(
+                    """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
+                       VALUES (%s, %s, %s, NOW())""", 
+                    (admin_id, "查询用户列表", f"管理员{admin_id}查询用户列表")
+                )
+            except Exception as log_error:
+                # 仅记录日志错误，不影响主流程
+                print(f"记录操作日志失败: {str(log_error)}")
+        
         return {
             "code": 200,
             "message": "获取用户列表成功",
@@ -122,6 +136,10 @@ async def update_user_status(request: UserStatusRequest):
         
         # 记录操作日志
         operation_type = "启用用户" if request.status == 1 else "禁用用户"
+        
+        # 使用请求中的admin_id，如果没有提供则使用默认值0
+        admin_id = request.admin_id if request.admin_id is not None else 0
+        
         execute_update(
             """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                VALUES (%s, %s, %s, NOW())""", 
@@ -140,7 +158,10 @@ async def update_user_status(request: UserStatusRequest):
 
 # 获取用户详情接口
 @router.get("/admin/users/{user_id}", tags=["用户管理"])
-async def get_user_detail(user_id: int):
+async def get_user_detail(
+    user_id: int,
+    admin_id: Optional[int] = Query(None, description="管理员ID")
+):
     """
     获取用户详细信息
     """
@@ -166,6 +187,18 @@ async def get_user_detail(user_id: int):
         user = user_detail[0]
         user['register_time'] = user['register_time'].strftime("%Y-%m-%d %H:%M:%S") if user['register_time'] else ""
         user['last_login_time'] = user['last_login_time'].strftime("%Y-%m-%d %H:%M:%S") if user['last_login_time'] else ""
+        
+        # 记录操作日志 (如果提供了管理员ID)
+        if admin_id:
+            try:
+                execute_update(
+                    """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
+                       VALUES (%s, %s, %s, NOW())""", 
+                    (admin_id, "查看用户详情", f"管理员{admin_id}查看用户{user_id}详情")
+                )
+            except Exception as log_error:
+                # 仅记录日志错误，不影响主流程
+                print(f"记录操作日志失败: {str(log_error)}")
         
         return {
             "code": 200,

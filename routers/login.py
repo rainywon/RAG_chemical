@@ -49,6 +49,13 @@ async def login(request: LoginRequest):
         if request.mode == 'password' and not request.password:
             return {"code": 400, "message": "密码登录模式下，密码不能为空"}
         
+        # 查询用户是否存在及状态
+        user_status_check = execute_query("""SELECT user_id, status FROM users WHERE mobile = %s LIMIT 1""", (request.mobile,))
+        
+        # 检查用户状态，如果已被禁用则拒绝登录
+        if user_status_check and user_status_check[0]['status'] == 0:
+            return {"code": 403, "message": "账号已被禁用，请联系管理员"}
+        
         # 根据登录模式选择不同的验证方式
         if request.mode == 'code':
             # 验证码登录
@@ -86,7 +93,7 @@ async def login(request: LoginRequest):
             if request.mode == 'code':
                 # 使用默认主题偏好设置创建用户
                 user_id = execute_update(
-                    """INSERT INTO users (mobile, theme_preference, register_time) VALUES (%s, 'light', NOW())""", 
+                    """INSERT INTO users (mobile, theme_preference, register_time, status) VALUES (%s, 'light', NOW(), 1)""", 
                     (request.mobile,))
             else:
                 # 密码登录模式下，用户不存在则返回错误
@@ -94,6 +101,11 @@ async def login(request: LoginRequest):
         else:
             # 如果用户已存在，获取用户 ID
             user_id = user_result[0]['user_id']
+            
+            # 再次检查用户状态，确保用户没有被禁用
+            if user_result[0]['status'] == 0:
+                return {"code": 403, "message": "账号已被禁用，请联系管理员"}
+                
             # 更新最后登录时间和登录次数
             execute_update(
                 """UPDATE users SET last_login_time = NOW() WHERE user_id = %s""", 

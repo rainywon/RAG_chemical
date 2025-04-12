@@ -15,7 +15,7 @@ from routers.login import get_current_admin
 router = APIRouter()
 
 # 获取登录历史记录
-@router.get("/admin/users/login-history", tags=["用户管理"])
+@router.get("/admin/login-history/all", tags=["用户管理"])
 async def get_login_history(
     page: int = Query(1, description="页码"),
     page_size: int = Query(10, description="每页数量"),
@@ -23,7 +23,7 @@ async def get_login_history(
     mobile: Optional[str] = Query(None, description="手机号筛选"),
     start_date: Optional[str] = Query(None, description="开始日期"),
     end_date: Optional[str] = Query(None, description="结束日期"),
-    admin_id: int = Depends(get_current_admin)
+    admin_id: Optional[int] = Query(None, description="管理员ID")
 ):
     """
     获取用户登录历史记录，支持分页和筛选
@@ -77,10 +77,23 @@ async def get_login_history(
         
         # 处理日期时间格式
         for record in login_history:
+            # 先判断状态，再格式化日期
+            record['status'] = "有效" if record['is_valid'] == 1 and record['expire_at'] > datetime.now() else "已过期或无效"
             record['login_time'] = record['login_time'].strftime("%Y-%m-%d %H:%M:%S") if record['login_time'] else ""
             record['expire_at'] = record['expire_at'].strftime("%Y-%m-%d %H:%M:%S") if record['expire_at'] else ""
-            record['status'] = "有效" if record['is_valid'] == 1 and record['expire_at'] > datetime.now() else "已过期或无效"
         
+        # 如果提供了管理员ID，记录管理员操作
+        if admin_id:
+            try:
+                execute_query(
+                    """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
+                       VALUES (%s, %s, %s, NOW())""", 
+                    (admin_id, "查询登录历史", f"管理员{admin_id}查询用户登录历史")
+                )
+            except Exception as log_error:
+                # 记录日志错误，但不影响主流程
+                print(f"记录操作日志失败: {str(log_error)}")
+                
         return {
             "code": 200,
             "message": "获取登录历史记录成功",
@@ -101,7 +114,7 @@ async def get_user_login_history(
     user_id: int,
     page: int = Query(1, description="页码"),
     page_size: int = Query(10, description="每页数量"),
-    admin_id: int = Depends(get_current_admin)
+    admin_id: Optional[int] = Query(None, description="管理员ID")
 ):
     """
     获取指定用户的登录历史记录
@@ -148,10 +161,23 @@ async def get_user_login_history(
         
         # 处理日期时间格式
         for record in login_history:
+            # 先判断状态，再格式化日期
+            record['status'] = "有效" if record['is_valid'] == 1 and record['expire_at'] > datetime.now() else "已过期或无效"
             record['login_time'] = record['login_time'].strftime("%Y-%m-%d %H:%M:%S") if record['login_time'] else ""
             record['expire_at'] = record['expire_at'].strftime("%Y-%m-%d %H:%M:%S") if record['expire_at'] else ""
-            record['status'] = "有效" if record['is_valid'] == 1 and record['expire_at'] > datetime.now() else "已过期或无效"
         
+        # 如果提供了管理员ID，记录管理员操作
+        if admin_id:
+            try:
+                execute_query(
+                    """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
+                       VALUES (%s, %s, %s, NOW())""", 
+                    (admin_id, "查询用户登录历史", f"管理员{admin_id}查询用户{user_id}的登录历史")
+                )
+            except Exception as log_error:
+                # 记录日志错误，但不影响主流程
+                print(f"记录操作日志失败: {str(log_error)}")
+                
         return {
             "code": 200,
             "message": "获取用户登录历史记录成功",
