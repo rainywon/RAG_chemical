@@ -27,6 +27,11 @@ class LoginRequest(BaseModel):
     code: Optional[str] = None  # 验证码，验证码登录时需要
     password: Optional[str] = None  # 密码，密码登录时需要
 
+# 定义管理员登录请求的模型
+class AdminLoginRequest(BaseModel):
+    mobile: str  # 管理员手机号
+    password: str  # 管理员密码
+
 
 # 创建一个 POST 请求的路由，路径为 "/login/"
 @router.post("/login/")
@@ -117,6 +122,56 @@ async def login(request: LoginRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# 创建管理员登录路由
+@router.post("/admin_login/")
+async def admin_login(request: AdminLoginRequest):
+    try:
+        # 验证管理员账号和密码
+        hashed_password = hashlib.md5(request.password.encode()).hexdigest()
+        
+        # 查询管理员表中是否存在该管理员并验证密码
+        admin_result = execute_query(
+            """SELECT * FROM admins WHERE phone_number = %s AND password = %s AND status = 1 LIMIT 1""", 
+            (request.mobile, hashed_password))
+        
+        # 如果没有找到管理员账号或密码错误
+        if not admin_result:
+            return {"code": 400, "message": "管理员账号或密码错误"}
+        
+        # 获取管理员信息
+        admin = admin_result[0]
+        admin_id = admin['admin_id']
+        
+        # 更新管理员最后登录时间
+        execute_update(
+            """UPDATE admins SET last_login_time = NOW() WHERE admin_id = %s""", 
+            (admin_id,))
+        
+        # 生成token
+        token = str(uuid.uuid4())
+        # 设置token过期时间（1天后）
+        expire_at = datetime.datetime.now() + datetime.timedelta(days=1)
+        
+        # 这里可以根据需要创建管理员令牌表，或使用现有的user_tokens表并添加标识
+        # 例如，可以在操作日志表中记录管理员登录信息
+        execute_update(
+            """INSERT INTO operation_logs (operation_type, operation_desc, created_at) 
+               VALUES ( 'admin_login', '管理员登录系统', NOW())""",
+           )
+        
+        # 返回成功登录的响应
+        return {
+            "code": 200, 
+            "message": "管理员登录成功", 
+            "admin_id": admin_id,
+            "admin_name": admin['full_name'],
+            "role": admin['role'],
+            "token": token
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # 获取当前用户的依赖函数
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
@@ -145,6 +200,31 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"认证失败: {str(e)}")
 
+# 获取当前管理员的依赖函数
+async def get_current_admin(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        # 从 Authorization header 中获取 token
+        token = credentials.credentials
+        
+        # 此处需要根据实际存储管理员token的方式进行查询
+        # 如果管理员token没有单独存储，可以使用其他标识区分管理员和普通用户
+        # 例如可以通过operation_logs表查询近期登录记录
+        admin_result = execute_query(
+            """SELECT a.* FROM admins a
+               JOIN operation_logs ol ON a.admin_id = ol.admin_id
+               WHERE ol.operation_type = 'admin_login'
+               AND ol.created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
+               AND a.status = 1
+               LIMIT 1""")
+        
+        if not admin_result:
+            raise HTTPException(status_code=401, detail="管理员会话已过期或无效")
+        
+        admin_id = admin_result[0]['admin_id']
+        return admin_id
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"管理员认证失败: {str(e)}")
+
 # 获取用户信息的路由
 @router.get("/user/info/")
 async def get_user_info(user_id: int = Depends(get_current_user)):
@@ -159,6 +239,29 @@ async def get_user_info(user_id: int = Depends(get_current_user)):
             "code": 200,
             "message": "获取用户信息成功",
             "data": user_info[0]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 获取管理员信息的路由
+@router.get("/admin/info/")
+async def get_admin_info(admin_id: int = Depends(get_current_admin)):
+    try:
+        # 查询管理员信息
+        admin_info = execute_query(
+            """SELECT admin_id, phone_number, full_name, role, email 
+               FROM admins WHERE admin_id = %s""", 
+            (admin_id,))
+        
+        if not admin_info:
+            raise HTTPException(status_code=404, detail="未找到管理员信息")
+        
+        return {
+            "code": 200,
+            "message": "获取管理员信息成功",
+            "data": admin_info[0]
         }
     except HTTPException:
         raise
@@ -181,6 +284,23 @@ async def logout(user_id: int = Depends(get_current_user), credentials: HTTPAuth
         return {
             "code": 200,
             "message": "登出成功"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 管理员登出的路由
+@router.post("/admin_logout/")
+async def admin_logout(admin_id: int = Depends(get_current_admin)):
+    try:
+        # 记录管理员登出操作
+        execute_update(
+            """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
+               VALUES (%s, 'admin_logout', '管理员退出系统', NOW())""",
+            (admin_id,))
+        
+        return {
+            "code": 200,
+            "message": "管理员登出成功"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
