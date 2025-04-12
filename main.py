@@ -15,6 +15,7 @@ from routers.user_feedback import router as user_feedback_router
 from routers.content_feedback import router as content_feedback_router
 from routers.system import router as system_router
 from routers.chat_history import router as chat_history_router
+from routers.conversationstat import router as conversation_stat_router
 
 # 创建 FastAPI 应用实例
 app = FastAPI()
@@ -39,6 +40,7 @@ app.include_router(user_feedback_router)  # 包含 用户反馈 路由
 app.include_router(content_feedback_router)  # 包含 内容反馈 路由
 app.include_router(system_router)  # 包含 系统 路由
 app.include_router(chat_history_router)  # 包含 聊天历史 路由
+app.include_router(conversation_stat_router)  # 包含 对话统计 路由
 
 if __name__ == '__main__':
     # 启动应用并监听 127.0.0.1:8000 端口，启用自动重载功能
