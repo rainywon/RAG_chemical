@@ -267,5 +267,6 @@ if __name__ == "__main__":
     evaluator = GenerationEvaluator(config)
     
     # 运行评估
-    test_data_path = "evaluate/test_data/generation_test_data.json"
-    evaluator.run_evaluation(test_data_path)
+    current_dir = Path(__file__).resolve().parent
+    test_data_path = current_dir / "test_data" / "generation_test_data.json"
+    evaluator.run_evaluation(str(test_data_path))

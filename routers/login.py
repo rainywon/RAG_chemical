@@ -33,6 +33,7 @@ class LoginRequest(BaseModel):
 # 异步处理函数，接收 LoginRequest 类型的请求体
 async def login(request: LoginRequest):
     try:
+        
         # 验证请求参数
         if request.mode not in ['code', 'password']:
             return {"code": 400, "message": "登录模式不正确，只支持code或password"}
@@ -90,7 +91,7 @@ async def login(request: LoginRequest):
             user_id = user_result[0]['user_id']
             # 更新最后登录时间和登录次数
             execute_update(
-                """UPDATE users SET last_login_time = NOW(), login_count = login_count + 1 WHERE user_id = %s""", 
+                """UPDATE users SET last_login_time = NOW() WHERE user_id = %s""", 
                 (user_id,))
 
         # 生成token并存入数据库

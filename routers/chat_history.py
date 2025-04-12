@@ -1,262 +1,283 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel
+# 引入 FastAPI 中的 APIRouter 和 HTTPException 模块，用于创建路由和处理异常
+from fastapi import APIRouter, HTTPException, Depends
+# 引入 Pydantic 中的 BaseModel 类，用于定义请求体的数据结构和验证
+from pydantic import BaseModel, Field
+# 从数据库模块导入 execute_query 和 execute_update 函数，用于执行查询和更新操作
 from database import execute_query, execute_update
-from typing import Optional, List, Dict, Any
+# 引入 UUID 模块用于生成唯一标识符
 import uuid
+# 引入可选类型和列表类型
+from typing import Optional, List, Dict, Any, Union
+# 引入时间模块
 from datetime import datetime
+# 引入 json 模块处理 JSON 数据
+import json
+# 引入用户认证依赖函数
 from routers.login import get_current_user
 
-# 初始化路由
+# 初始化 APIRouter 实例，用于定义路由
 router = APIRouter()
-security = HTTPBearer()
 
 # 定义请求和响应模型
 class ChatSessionCreate(BaseModel):
+    """创建聊天会话的请求模型"""
     user_id: str
     title: Optional[str] = None
 
 class ChatMessageCreate(BaseModel):
-    session_id: str
-    message_type: str  # 'user' 或 'ai'
-    content: str
-    parent_id: Optional[str] = None
-    paired_ai_id: Optional[str] = None
-    references: Optional[List[Dict[str, Any]]] = None
-    question: Optional[str] = None
-    is_loading: Optional[bool] = False
+    """创建聊天消息的请求模型"""
+    id: str
+    session_id: str  
+    message_type: str  # 消息类型: "user" 或 "ai"
+    content: Optional[str] = None  # 消息内容
+    parent_id: Optional[str] = None  # 父消息ID，回复时使用
+    paired_ai_id: Optional[str] = None  # 配对的AI消息ID，用户消息使用
+    message_references: Optional[str] = Field(default='{}')  # 消息引用的内容，作为JSON字符串
+    question: Optional[str] = None  # 相关问题
+    is_loading: Optional[bool] = False  # 是否处于加载状态
 
-# 创建新会话
-@router.post("/chat/sessions")
-async def create_chat_session(request: ChatSessionCreate):
+class ChatMessageUpdate(BaseModel):
+    """更新聊天消息的请求模型"""
+    content: Optional[str] = None
+    message_references: Optional[str] = None  # 消息引用的内容，作为JSON字符串
+    is_loading: Optional[bool] = None
+
+class ChatSessionUpdate(BaseModel):
+    """更新聊天会话的请求模型"""
+    title: Optional[str] = None
+
+# API 路由
+
+@router.post("/chat/sessions", tags=["聊天历史"])
+async def create_chat_session(session: ChatSessionCreate):
+    """
+    创建新的聊天会话。
+    """
     try:
-        # 检查用户是否存在
-        user_result = execute_query("SELECT * FROM users WHERE user_id = %s", (request.user_id,))
-        if not user_result:
-            return {"code": 404, "message": "用户不存在"}
-        
-        # 生成会话ID
+        # 生成唯一的会话ID
         session_id = str(uuid.uuid4())
         
-        # 生成默认标题（如果未提供）
-        title = request.title or f"对话 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        # 如果没有提供标题，则使用默认标题
+        title = session.title or f"对话 {datetime.now().strftime('%H:%M:%S')}"
         
-        # 创建新会话
+        # 在数据库中创建会话
         execute_update(
-            "INSERT INTO chat_sessions (id, user_id, title, created_at) VALUES (%s, %s, %s, NOW())",
-            (session_id, request.user_id, title)
+            """INSERT INTO chat_sessions (id, user_id, title, created_at) 
+               VALUES (%s, %s, %s, NOW())""", 
+            (session_id, session.user_id, title)
         )
         
         return {"id": session_id, "title": title}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"创建会话失败: {str(e)}")
 
-# 获取用户的所有会话
-@router.get("/chat/sessions")
-async def get_chat_sessions(user_id: str = Query(...)):
+@router.get("/chat/sessions/{user_id}", tags=["聊天历史"])
+async def get_user_chat_sessions(user_id: str):
+    """
+    获取用户的所有聊天会话。
+    """
     try:
         # 查询用户的所有会话
         sessions = execute_query(
-            """SELECT id, user_id, title, created_at, updated_at 
+            """SELECT id, title, created_at, updated_at 
                FROM chat_sessions 
                WHERE user_id = %s 
-               ORDER BY updated_at DESC""",
+               ORDER BY updated_at DESC""", 
             (user_id,)
         )
         
-        return sessions
+        # 转换datetime对象为字符串，以便JSON序列化
+        for session in sessions:
+            session['created_at'] = session['created_at'].isoformat() if session['created_at'] else None
+            session['updated_at'] = session['updated_at'].isoformat() if session['updated_at'] else None
+        
+        return {"sessions": sessions}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"获取会话列表失败: {str(e)}")
 
-# 获取会话详情
-@router.get("/chat/sessions/{session_id}")
-async def get_chat_session(session_id: str):
+@router.get("/chat/sessions/{session_id}/messages", tags=["聊天历史"])
+async def get_chat_session_messages(session_id: str):
+    """
+    获取特定聊天会话的所有消息。
+    """
     try:
-        # 查询会话信息
-        session = execute_query(
-            "SELECT id, user_id, title, created_at, updated_at FROM chat_sessions WHERE id = %s",
-            (session_id,)
-        )
-        
-        if not session:
-            raise HTTPException(status_code=404, detail="会话不存在")
-        
-        return session[0]
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# 删除会话
-@router.delete("/chat/sessions/{session_id}")
-async def delete_chat_session(session_id: str):
-    try:
-        # 检查会话是否存在
-        session = execute_query("SELECT * FROM chat_sessions WHERE id = %s", (session_id,))
-        
-        if not session:
-            raise HTTPException(status_code=404, detail="会话不存在")
-        
-        # 删除会话（会级联删除该会话下的所有消息）
-        execute_update("DELETE FROM chat_sessions WHERE id = %s", (session_id,))
-        
-        return {"code": 200, "message": "会话已删除"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# 清空用户的所有会话
-@router.delete("/chat/sessions/clear")
-async def clear_chat_sessions(user_id: str = Query(...)):
-    try:
-        # 检查用户是否存在
-        user_result = execute_query("SELECT * FROM users WHERE user_id = %s", (user_id,))
-        
-        if not user_result:
-            raise HTTPException(status_code=404, detail="用户不存在")
-        
-        # 删除用户的所有会话（会级联删除所有消息）
-        execute_update("DELETE FROM chat_sessions WHERE user_id = %s", (user_id,))
-        
-        return {"code": 200, "message": "所有会话已清空"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# 获取会话中的所有消息
-@router.get("/chat/messages")
-async def get_chat_messages(session_id: str = Query(...)):
-    try:
-        # 检查会话是否存在
-        session = execute_query("SELECT * FROM chat_sessions WHERE id = %s", (session_id,))
-        
-        if not session:
-            raise HTTPException(status_code=404, detail="会话不存在")
-        
-        # 查询会话中的所有消息
+        # 查询会话的所有消息
         messages = execute_query(
-            """SELECT id, session_id, message_type, content, parent_id, paired_ai_id, 
-               references, question, is_loading, created_at 
+            """SELECT id, message_type, content, parent_id, paired_ai_id, 
+                      message_references, question, is_loading, created_at
                FROM chat_messages 
                WHERE session_id = %s 
-               ORDER BY created_at ASC""",
+               ORDER BY created_at ASC""", 
             (session_id,)
         )
         
-        return messages
-    except HTTPException:
-        raise
+        # 转换datetime对象为字符串，以便JSON序列化
+        for message in messages:
+            message['created_at'] = message['created_at'].isoformat() if message['created_at'] else None
+            # 确保布尔值正确转换
+            message['is_loading'] = bool(message['is_loading'])
+            
+            # 处理 message_references 字段
+            # 如果已经是字符串，尝试解析为 JSON 对象
+            if isinstance(message['message_references'], str):
+                try:
+                    message['message_references'] = json.loads(message['message_references'])
+                except json.JSONDecodeError:
+                    # 如果无法解析为 JSON，保持原样
+                    pass
+        
+        return {"messages": messages}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"获取消息列表失败: {str(e)}")
 
-# 创建新消息
-@router.post("/chat/messages")
-async def create_chat_message(request: ChatMessageCreate):
+@router.post("/chat/messages", tags=["聊天历史"])
+async def create_chat_message(message: ChatMessageCreate):
+    """
+    创建新的聊天消息。
+    """
     try:
-        # 检查会话是否存在
-        session = execute_query("SELECT * FROM chat_sessions WHERE id = %s", (request.session_id,))
+
         
-        if not session:
-            raise HTTPException(status_code=404, detail="会话不存在")
+        # 确保 message_references 是有效的 JSON 字符串
+        if message.message_references is None:
+            message_references = '{}'
+        else:
+            # 我们已经在模型中定义了它是字符串类型，所以直接使用
+            message_references = message.message_references
+            
+            # 验证它是有效的 JSON 字符串
+            try:
+                json.loads(message_references)
+            except json.JSONDecodeError:
+                # 如果不是有效的 JSON，使用空对象
+                message_references = '{}'
         
-        # 生成消息ID
-        message_id = str(uuid.uuid4())
-        
-        # 处理可能为None的字段
-        parent_id = request.parent_id if request.parent_id is not None else None
-        paired_ai_id = request.paired_ai_id if request.paired_ai_id is not None else None
-        references = request.references if request.references is not None else []
-        question = request.question if request.question is not None else ""
-        is_loading = request.is_loading if request.is_loading is not None else False
-        
-        # 创建新消息
+        # 在数据库中创建消息
         execute_update(
             """INSERT INTO chat_messages 
                (id, session_id, message_type, content, parent_id, paired_ai_id, 
-                references, question, is_loading, created_at) 
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
+                message_references, question, is_loading, created_at) 
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())""", 
             (
-                message_id, 
-                request.session_id, 
-                request.message_type, 
-                request.content, 
-                parent_id, 
-                paired_ai_id,
-                references,
-                question,
-                is_loading
+                message.id, 
+                message.session_id, 
+                message.message_type, 
+                message.content,
+                message.parent_id, 
+                message.paired_ai_id,
+                message_references,  # 已经是 JSON 字符串
+                message.question,
+                message.is_loading
             )
         )
         
         # 更新会话的更新时间
         execute_update(
-            "UPDATE chat_sessions SET updated_at = NOW() WHERE id = %s", 
-            (request.session_id,)
+            """UPDATE chat_sessions SET updated_at = NOW() WHERE id = %s""", 
+            (message.session_id,)
         )
         
-        return {"id": message_id}
-    except HTTPException:
-        raise
+        return {"id": message.id}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"创建消息失败: {str(e)}")
 
-# 更新消息
-@router.put("/chat/messages/{message_id}")
-async def update_chat_message(message_id: str, request: ChatMessageCreate):
+@router.put("/chat/messages/{message_id}", tags=["聊天历史"])
+async def update_chat_message(message_id: str, message: ChatMessageUpdate):
+    """
+    更新现有的聊天消息。
+    """
     try:
-        # 检查消息是否存在
-        message = execute_query("SELECT * FROM chat_messages WHERE id = %s", (message_id,))
+        # 构建更新SQL语句
+        update_fields = []
+        params = []
         
-        if not message:
-            raise HTTPException(status_code=404, detail="消息不存在")
+        if message.content is not None:
+            update_fields.append("content = %s")
+            params.append(message.content)
+            
+        if message.message_references is not None:
+            update_fields.append("message_references = %s")
+            
+            # 验证 message_references 是有效的 JSON 字符串
+            try:
+                json.loads(message.message_references)
+                message_references = message.message_references
+            except json.JSONDecodeError:
+                # 如果不是有效的 JSON，使用空对象
+                message_references = '{}'
+                
+            params.append(message_references)
+            
+        if message.is_loading is not None:
+            update_fields.append("is_loading = %s")
+            params.append(message.is_loading)
         
-        # 处理可能为None的字段
-        parent_id = request.parent_id if request.parent_id is not None else None
-        paired_ai_id = request.paired_ai_id if request.paired_ai_id is not None else None
-        references = request.references if request.references is not None else []
-        question = request.question if request.question is not None else ""
-        is_loading = request.is_loading if request.is_loading is not None else False
+        if not update_fields:
+            return {"message": "Nothing to update"}
         
-        # 更新消息
+        # 执行更新操作
+        params.append(message_id)
+        
         execute_update(
-            """UPDATE chat_messages 
-               SET content = %s, parent_id = %s, paired_ai_id = %s, 
-                   references = %s, question = %s, is_loading = %s 
-               WHERE id = %s""",
-            (
-                request.content, 
-                parent_id, 
-                paired_ai_id,
-                references,
-                question,
-                is_loading,
-                message_id
-            )
+            f"""UPDATE chat_messages 
+                SET {", ".join(update_fields)} 
+                WHERE id = %s""", 
+            tuple(params)
         )
         
-        return {"code": 200, "message": "消息已更新"}
-    except HTTPException:
-        raise
+        return {"message": "Message updated successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"更新消息失败: {str(e)}")
 
-# 删除消息
-@router.delete("/chat/messages/{message_id}")
-async def delete_chat_message(message_id: str):
+@router.put("/chat/sessions/{session_id}", tags=["聊天历史"])
+async def update_chat_session(session_id: str, session: ChatSessionUpdate):
+    """
+    更新聊天会话信息，例如标题。
+    """
     try:
-        # 检查消息是否存在
-        message = execute_query("SELECT * FROM chat_messages WHERE id = %s", (message_id,))
+        if session.title:
+            execute_update(
+                """UPDATE chat_sessions SET title = %s, updated_at = NOW() WHERE id = %s""", 
+                (session.title, session_id)
+            )
+            
+        return {"message": "Session updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新会话失败: {str(e)}")
+
+@router.delete("/chat/sessions/{session_id}", tags=["聊天历史"])
+async def delete_chat_session(session_id: str):
+    """
+    删除聊天会话及其所有消息。
+    """
+    try:
+        # 删除会话及其消息（依赖外键约束自动删除消息）
+        result = execute_update(
+            """DELETE FROM chat_sessions WHERE id = %s""", 
+            (session_id,)
+        )
         
-        if not message:
-            raise HTTPException(status_code=404, detail="消息不存在")
-        
-        # 删除消息
-        execute_update("DELETE FROM chat_messages WHERE id = %s", (message_id,))
-        
-        return {"code": 200, "message": "消息已删除"}
+        if result == 0:
+            raise HTTPException(status_code=404, detail="Chat session not found")
+            
+        return {"message": "Session deleted successfully"}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=f"删除会话失败: {str(e)}")
+
+@router.delete("/chat/sessions/user/{user_id}", tags=["聊天历史"])
+async def delete_all_user_chat_sessions(user_id: str):
+    """
+    删除用户的所有聊天会话及其消息。
+    """
+    try:
+        # 删除用户的所有会话（依赖外键约束自动删除消息）
+        result = execute_update(
+            """DELETE FROM chat_sessions WHERE user_id = %s""", 
+            (user_id,)
+        )
+            
+        return {"message": f"Deleted {result} sessions successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"删除会话失败: {str(e)}")
