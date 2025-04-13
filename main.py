@@ -24,6 +24,7 @@ from routers.admin.admins.OperationLogs import router as operation_logs_router
 from routers.admin.feedback.SystemFunctionFeedback import router as system_function_feedback_router
 from routers.admin.feedback.AIContentFeedback import router as ai_content_feedback_router
 from routers.admin.settings.SystemParams import router as system_params_router
+from routers.admin.content.CategoryManager import router as category_manager_router
 # 创建 FastAPI 应用实例
 app = FastAPI()
 
@@ -56,6 +57,7 @@ app.include_router(operation_logs_router)  # 包含 操作日志 路由
 app.include_router(system_function_feedback_router)  # 包含 系统功能反馈 路由
 app.include_router(ai_content_feedback_router)  # 包含 AI内容反馈 路由
 app.include_router(system_params_router)  # 包含 系统参数设置 路由
+app.include_router(category_manager_router)  # 包含 知识库文件管理 路由
 
 
 if __name__ == '__main__':

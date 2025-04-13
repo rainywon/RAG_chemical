@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class SystemConfigUpdate(BaseModel):
     config_value: str
     description: Optional[str] = None
-    admin_id: Optional[int] = None
+    admin_id: int
 
 # 定义系统版本模型
 class SystemVersionCreate(BaseModel):
@@ -29,15 +29,15 @@ class SystemVersionCreate(BaseModel):
     release_date: str
     update_notes: Optional[str] = None
     is_current: bool = False
-    admin_id: Optional[int] = None
+    admin_id: int
 
 # 设置当前版本请求模型
 class SetCurrentVersionRequest(BaseModel):
-    admin_id: Optional[int] = None
+    admin_id: int
 
 # 获取所有系统配置
 @router.get("/admin/settings/system-configs", tags=["系统设置"])
-async def get_system_configs(admin_id: Optional[int] = Query(None)):
+async def get_system_configs(admin_id: int = Query(...)):
     """
     获取所有系统配置参数
     """
@@ -96,11 +96,10 @@ async def update_system_config(
         
         # 记录操作日志
         admin_id = config_update.admin_id
-        if admin_id is not None:
-            execute_update(
-                "INSERT INTO operation_logs (admin_id, operation_type, operation_desc) VALUES (%s, %s, %s)",
-                (admin_id, "update", f"管理员{admin_id}更新系统配置{config_id}")
-            )
+        execute_update(
+            "INSERT INTO operation_logs (admin_id, operation_type, operation_desc) VALUES (%s, %s, %s)",
+            (admin_id, "update", f"管理员{admin_id}更新系统配置{config_id}")
+        )
         
         # 获取更新后的配置
         updated_config = execute_query(
@@ -121,7 +120,7 @@ async def update_system_config(
 
 # 获取所有系统版本
 @router.get("/admin/settings/system-versions", tags=["系统设置"])
-async def get_system_versions(admin_id: Optional[int] = Query(None)):
+async def get_system_versions(admin_id: int = Query(...)):
     """
     获取所有系统版本信息
     """
@@ -173,11 +172,10 @@ async def create_system_version(
         
         # 记录操作日志
         admin_id = version.admin_id
-        if admin_id is not None:
-            execute_update(
-                "INSERT INTO operation_logs (admin_id, operation_type, operation_desc) VALUES (%s, %s, %s)",
-                (admin_id, "create", f"管理员{admin_id}添加系统版本{version.version_number}")
-            )
+        execute_update(
+            "INSERT INTO operation_logs (admin_id, operation_type, operation_desc) VALUES (%s, %s, %s)",
+            (admin_id, "create", f"管理员{admin_id}添加系统版本{version.version_number}")
+        )
         
         # 获取新添加的版本
         new_version = execute_query(
@@ -197,8 +195,8 @@ async def create_system_version(
 # 设置当前版本
 @router.put("/admin/settings/system-versions/{version_id}/set-current", tags=["系统设置"])
 async def set_current_version(
-    version_id: int = Path(..., title="版本ID"),
-    request: Optional[SetCurrentVersionRequest] = None
+    request: SetCurrentVersionRequest,
+    version_id: int = Path(..., title="版本ID")
 ):
     """
     设置指定版本为当前版本
@@ -225,12 +223,11 @@ async def set_current_version(
         )
         
         # 记录操作日志
-        admin_id = request.admin_id if request and request.admin_id else None
-        if admin_id is not None:
-            execute_update(
-                "INSERT INTO operation_logs (admin_id, operation_type, operation_desc) VALUES (%s, %s, %s)",
-                (admin_id, "update", f"管理员{admin_id}将版本{existing_version[0]['version_number']}设为当前版本")
-            )
+        admin_id = request.admin_id
+        execute_update(
+            "INSERT INTO operation_logs (admin_id, operation_type, operation_desc) VALUES (%s, %s, %s)",
+            (admin_id, "update", f"管理员{admin_id}将版本{existing_version[0]['version_number']}设为当前版本")
+        )
         
         # 获取更新后的版本
         updated_version = execute_query(
