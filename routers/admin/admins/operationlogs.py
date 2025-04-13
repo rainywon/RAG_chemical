@@ -1,5 +1,5 @@
 # 引入 FastAPI 中的 APIRouter 和 HTTPException 模块，用于创建路由和处理异常
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Query
 # 引入 Pydantic 中的 BaseModel 类，用于定义请求体的数据结构和验证
 from pydantic import BaseModel
 # 从数据库模块导入 execute_query 和 execute_update 函数，用于执行查询和更新操作
@@ -8,8 +8,6 @@ from database import execute_query, execute_update
 from datetime import datetime, timedelta
 # 引入 typing 模块中的 Optional 和 List 类型
 from typing import Optional, List
-# 引入管理员认证依赖函数
-from routers.login import get_current_admin
 
 # 初始化 APIRouter 实例，用于定义路由
 router = APIRouter()
@@ -141,7 +139,7 @@ async def get_operation_log_detail(
                 execute_update(
                     """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                        VALUES (%s, %s, %s, NOW())""", 
-                    (current_admin_id, "query", f"管理员{current_admin_id}查看日志{log_id}详情")
+                    (current_admin_id, "查询", f"管理员{current_admin_id}查看日志{log_id}详情")
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程
