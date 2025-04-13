@@ -19,6 +19,12 @@ from routers.admin.monitor.conversationstat import router as conversation_stat_r
 from routers.admin.monitor.useractivity import router as user_activity_router
 from routers.admin.users.UserManagement import router as user_management_router
 from routers.admin.users.LoginHistory import router as login_history_router
+# 导入新添加的反馈管理相关路由
+from routers.admin.feedback.feedbacklist import router as feedback_list_router
+from routers.admin.feedback.feedbackstatus import router as feedback_status_router
+from routers.admin.feedback.feedbackstats import router as feedback_stats_router
+from routers.admin.feedback.contentrating import router as content_rating_router
+
 # 创建 FastAPI 应用实例
 app = FastAPI()
 
@@ -46,6 +52,12 @@ app.include_router(conversation_stat_router)  # 包含 对话统计 路由
 app.include_router(user_activity_router)  # 包含 用户活跃度 路由
 app.include_router(user_management_router)  # 包含 用户管理 路由
 app.include_router(login_history_router)  # 包含 登录历史 路由
+# 注册新添加的反馈管理相关路由
+app.include_router(feedback_list_router)  # 包含 反馈列表 路由
+app.include_router(feedback_status_router)  # 包含 反馈状态 路由
+app.include_router(feedback_stats_router)  # 包含 反馈统计 路由
+app.include_router(content_rating_router)  # 包含 内容评价 路由
+
 if __name__ == '__main__':
     # 启动应用并监听 127.0.0.1:8000 端口，启用自动重载功能
     uvicorn.run("main:app",
