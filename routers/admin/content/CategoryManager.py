@@ -79,7 +79,6 @@ def get_file_list(
     """
     try:
         # 记录请求参数用于调试
-        logger.info(f"获取文件列表参数: page={page}, page_size={page_size}, sort_by={sort_by}, file_type={file_type}")
         
         # 记录操作日志（不阻止主要功能）
         log_admin_operation(admin_id, "query", f"管理员{admin_id}查询知识库文件列表")
@@ -89,7 +88,6 @@ def get_file_list(
         file_paths = glob.glob(os.path.join(KNOWLEDGE_BASE_PATH, "*.*"))
         
         # 记录查找到的总文件数
-        logger.info(f"知识库中找到 {len(file_paths)} 个文件")
         
         for i, file_path in enumerate(file_paths):
             file_stats = os.stat(file_path)
@@ -133,7 +131,6 @@ def get_file_list(
             file_list.append(file_info)
         
         # 记录过滤后的文件数
-        logger.info(f"过滤后剩余 {len(file_list)} 个文件")
         
         # 应用排序
         if sort_by:
@@ -175,7 +172,6 @@ def get_file_list(
         paginated_files = file_list[start_idx:end_idx]
         
         # 记录分页信息
-        logger.info(f"分页结果: 第{page}页 每页{page_size}条 总数{total_count}条 当前页显示{len(paginated_files)}条")
         
         return {
             "success": True,
