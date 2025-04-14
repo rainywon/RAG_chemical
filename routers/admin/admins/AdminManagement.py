@@ -161,7 +161,7 @@ async def get_admins(
                 execute_update(
                     """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                        VALUES (%s, %s, %s, NOW())""", 
-                    (admin_id, "查询管理员列表", f"管理员{admin_id}查询管理员列表")
+                    (admin_id, "查询", f"管理员{admin_id}查询管理员列表")
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程
@@ -227,7 +227,7 @@ async def create_admin(admin_data: AdminCreate, admin_id: Optional[int] = Query(
                 execute_update(
                     """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                        VALUES (%s, %s, %s, NOW())""", 
-                    (admin_id, "创建管理员", f"管理员{admin_id}创建了管理员: {admin_data.full_name}({admin_data.phone_number})")
+                    (admin_id, "创建", f"管理员{admin_id}创建了管理员: {admin_data.full_name}({admin_data.phone_number})")
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程
@@ -303,7 +303,7 @@ async def update_admin(
                 execute_update(
                     """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                        VALUES (%s, %s, %s, NOW())""", 
-                    (current_admin_id, "更新管理员", f"管理员{current_admin_id}更新了管理员信息: {admin_data.full_name}({admin_data.phone_number})")
+                    (current_admin_id, "更新", f"管理员{current_admin_id}更新了管理员信息: {admin_data.full_name}({admin_data.phone_number})")
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程
@@ -357,7 +357,7 @@ async def update_admin_status(status_data: AdminStatusUpdate):
                        VALUES (%s, %s, %s, NOW())""", 
                     (
                         status_data.admin_id_operator, 
-                        f"{status_text}管理员账号", 
+                        f"更新", 
                         f"管理员{status_data.admin_id_operator}{status_text}了管理员账号: {admin[0]['full_name']}({admin[0]['phone_number']})"
                     )
                 )

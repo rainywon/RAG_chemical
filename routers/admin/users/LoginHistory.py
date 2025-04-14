@@ -88,7 +88,7 @@ async def get_login_history(
                 execute_query(
                     """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                        VALUES (%s, %s, %s, NOW())""", 
-                    (admin_id, "查询登录历史", f"管理员{admin_id}查询用户登录历史")
+                    (admin_id, "查询", f"管理员{admin_id}查询用户登录历史")
                 )
             except Exception as log_error:
                 # 记录日志错误，但不影响主流程
@@ -172,7 +172,7 @@ async def get_user_login_history(
                 execute_query(
                     """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                        VALUES (%s, %s, %s, NOW())""", 
-                    (admin_id, "查询用户登录历史", f"管理员{admin_id}查询用户{user_id}的登录历史")
+                    (admin_id, "查询", f"管理员{admin_id}查询用户{user_id}的登录历史")
                 )
             except Exception as log_error:
                 # 记录日志错误，但不影响主流程

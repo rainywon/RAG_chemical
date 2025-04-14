@@ -81,7 +81,7 @@ def get_file_list(
     """
     try:
         # 记录操作日志（不阻止主要功能）
-        log_admin_operation(admin_id, "query", f"管理员{admin_id}查询应急预案文件列表")
+        log_admin_operation(admin_id, "查询", f"管理员{admin_id}查询应急预案文件列表")
         
         # 获取所有文件
         file_list = []
@@ -224,7 +224,7 @@ def upload_files(
             uploaded_files.append(file.filename)
         
         # 记录操作日志（不阻止主要功能）
-        log_admin_operation(admin_id, "upload", f"管理员{admin_id}上传了{len(uploaded_files)}个应急预案文件")
+        log_admin_operation(admin_id, "上传文件", f"管理员{admin_id}上传了{len(uploaded_files)}个应急预案文件")
         
         return {"success": True, "message": f"成功上传 {len(uploaded_files)} 个应急预案文件", "files": uploaded_files}
     except Exception as e:
@@ -248,7 +248,7 @@ def download_file(
             raise HTTPException(status_code=404, detail="文件不存在")
         
         # 记录操作日志（不阻止主要功能）
-        log_admin_operation(admin_id, "download", f"管理员{admin_id}下载了应急预案文件{file_name}")
+        log_admin_operation(admin_id, "下载文件", f"管理员{admin_id}下载了应急预案文件{file_name}")
         
         # 确定媒体类型
         file_ext = os.path.splitext(file_name)[1].lower()
@@ -286,7 +286,7 @@ def view_file(
             raise HTTPException(status_code=400, detail="只支持查看PDF文件")
         
         # 记录操作日志（不阻止主要功能）
-        log_admin_operation(admin_id, "view", f"管理员{admin_id}在线查看了PDF文件{file_name}")
+        log_admin_operation(admin_id, "查询", f"管理员{admin_id}在线查看了PDF文件{file_name}")
         
         return FileResponse(
             path=file_path, 
@@ -319,7 +319,7 @@ def delete_file(
         os.remove(file_path)
         
         # 记录操作日志（不阻止主要功能）
-        log_admin_operation(admin_id, "delete", f"管理员{admin_id}删除了应急预案文件{file_name}")
+        log_admin_operation(admin_id, "删除", f"管理员{admin_id}删除了应急预案文件{file_name}")
         
         return {"success": True, "message": f"成功删除文件: {file_name}"}
     except HTTPException:
@@ -358,7 +358,7 @@ def batch_delete_files(
                     failed_files.append({"name": file_info["name"], "error": str(e)})
         
         # 记录操作日志（不阻止主要功能）
-        log_admin_operation(request.admin_id, "batch_delete", f"管理员{request.admin_id}批量删除了{len(deleted_files)}个应急预案文件")
+        log_admin_operation(request.admin_id, "删除", f"管理员{request.admin_id}批量删除了{len(deleted_files)}个应急预案文件")
         
         return {
             "success": True,

@@ -183,7 +183,7 @@ async def admin_login(request: AdminLoginRequest):
         # 例如，可以在操作日志表中记录管理员登录信息
         execute_update(
             """INSERT INTO operation_logs (operation_type, operation_desc, created_at) 
-               VALUES ( 'admin_login', '管理员登录系统', NOW())""",
+               VALUES ( '登录', '管理员登录系统', NOW())""",
            )
         
         # 返回成功登录的响应
@@ -322,7 +322,7 @@ async def admin_logout(admin_id: int = Depends(get_current_admin)):
         # 记录管理员登出操作
         execute_update(
             """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
-               VALUES (%s, 'admin_logout', '管理员退出系统', NOW())""",
+               VALUES (%s, '登出', '管理员退出系统', NOW())""",
             (admin_id,))
         
         return {

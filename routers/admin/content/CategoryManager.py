@@ -83,7 +83,7 @@ def get_file_list(
         # 记录请求参数用于调试
         
         # 记录操作日志（不阻止主要功能）
-        log_admin_operation(admin_id, "query", f"管理员{admin_id}查询知识库文件列表")
+        log_admin_operation(admin_id, "查询", f"管理员{admin_id}查询知识库文件列表")
         
         # 获取所有文件
         file_list = []
@@ -227,7 +227,7 @@ def upload_files(
             uploaded_files.append(file.filename)
         
         # 记录操作日志（不阻止主要功能）
-        log_admin_operation(admin_id, "upload", f"管理员{admin_id}上传了{len(uploaded_files)}个文件")
+        log_admin_operation(admin_id, "上传文件", f"管理员{admin_id}上传了{len(uploaded_files)}个文件")
         
         return {"success": True, "message": f"成功上传 {len(uploaded_files)} 个文件", "files": uploaded_files}
     except Exception as e:
@@ -251,7 +251,7 @@ def download_file(
             raise HTTPException(status_code=404, detail="文件不存在")
         
         # 记录操作日志（不阻止主要功能）
-        log_admin_operation(admin_id, "download", f"管理员{admin_id}下载了文件{file_name}")
+        log_admin_operation(admin_id, "下载文件", f"管理员{admin_id}下载了文件{file_name}")
         
         return FileResponse(
             path=file_path, 
@@ -284,7 +284,7 @@ def delete_file(
         os.remove(file_path)
         
         # 记录操作日志（不阻止主要功能）
-        log_admin_operation(admin_id, "delete", f"管理员{admin_id}删除了文件{file_name}")
+        log_admin_operation(admin_id, "删除", f"管理员{admin_id}删除了文件{file_name}")
         
         return {"success": True, "message": f"成功删除文件: {file_name}"}
     except HTTPException:
@@ -323,7 +323,7 @@ def batch_delete_files(
                     failed_files.append({"name": file_info["name"], "error": str(e)})
         
         # 记录操作日志（不阻止主要功能）
-        log_admin_operation(request.admin_id, "batch_delete", f"管理员{request.admin_id}批量删除了{len(deleted_files)}个文件")
+        log_admin_operation(request.admin_id, "删除", f"管理员{request.admin_id}批量删除了{len(deleted_files)}个文件")
         
         return {
             "success": True,
@@ -376,7 +376,7 @@ def preview_file(
                 data.append(item)
             
             # 记录操作日志（不阻止主要功能）
-            log_admin_operation(admin_id, "preview", f"管理员{admin_id}预览了文件{file_name}")
+            log_admin_operation(admin_id, "查询", f"管理员{admin_id}预览了文件{file_name}")
             
             return {"success": True, "columns": columns, "data": data}
         except Exception as e:

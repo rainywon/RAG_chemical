@@ -157,7 +157,7 @@ async def get_content_feedback_list(
                 execute_update(
                     """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                        VALUES (%s, %s, %s, NOW())""", 
-                    (current_admin_id, "query", f"管理员{current_admin_id}查询AI内容反馈列表")
+                    (current_admin_id, "查询", f"管理员{current_admin_id}查询AI内容反馈列表")
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程
@@ -267,7 +267,7 @@ async def get_content_feedback_stats(
                 execute_update(
                     """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                        VALUES (%s, %s, %s, NOW())""", 
-                    (current_admin_id, "query", f"管理员{current_admin_id}查询AI内容反馈统计")
+                    (current_admin_id, "查询", f"管理员{current_admin_id}查询AI内容反馈统计")
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程
@@ -326,7 +326,7 @@ async def get_content_feedback_detail(
                 execute_update(
                     """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                        VALUES (%s, %s, %s, NOW())""", 
-                    (current_admin_id, "query", f"管理员{current_admin_id}查看AI内容反馈详情[ID:{feedback_id}]")
+                    (current_admin_id, "查询", f"管理员{current_admin_id}查看AI内容反馈详情[ID:{feedback_id}]")
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程
@@ -392,7 +392,7 @@ async def update_content_feedback_status(
                 execute_update(
                     """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                        VALUES (%s, %s, %s, NOW())""", 
-                    (current_admin_id, "update", operation_desc)
+                    (current_admin_id, "更新", operation_desc)
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程

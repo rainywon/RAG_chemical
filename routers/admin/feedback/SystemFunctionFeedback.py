@@ -93,7 +93,7 @@ async def get_system_feedback_list(
                 execute_update(
                     """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                        VALUES (%s, %s, %s, NOW())""", 
-                    (current_admin_id, "query", f"管理员{current_admin_id}查询系统功能反馈列表")
+                    (current_admin_id, "查询", f"管理员{current_admin_id}查询系统功能反馈列表")
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程
@@ -175,7 +175,7 @@ async def get_system_feedback_stats(
                 execute_update(
                     """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                        VALUES (%s, %s, %s, NOW())""", 
-                    (current_admin_id, "query", f"管理员{current_admin_id}查询系统功能反馈统计")
+                    (current_admin_id, "查询", f"管理员{current_admin_id}查询系统功能反馈统计")
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程
@@ -233,7 +233,7 @@ async def get_system_feedback_detail(
                 execute_update(
                     """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                        VALUES (%s, %s, %s, NOW())""", 
-                    (current_admin_id, "query", f"管理员{current_admin_id}查看系统功能反馈{feedback_id}详情")
+                    (current_admin_id, "查询", f"管理员{current_admin_id}查看系统功能反馈{feedback_id}详情")
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程
@@ -301,7 +301,7 @@ async def update_system_feedback_status(
                 execute_update(
                     """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                        VALUES (%s, %s, %s, NOW())""", 
-                    (current_admin_id, "update", f"管理员{current_admin_id}更新系统功能反馈{feedback_id}状态为{request.status}")
+                    (current_admin_id, "更新", f"管理员{current_admin_id}更新系统功能反馈{feedback_id}状态为{request.status}")
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程

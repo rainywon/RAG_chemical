@@ -7,11 +7,9 @@ router = APIRouter()
  
  # 定义请求体的模型，使用 Pydantic 的 BaseModel 来验证请求的数据
 class FeedbackRequest(BaseModel):
-     rating: int  # 星级评分
-     feedback: str  # 反馈内容
-     feedbackOption: str  # 反馈选项
-     message: str  # AI 回答内容
-     question: str  # 用户问题
+     user_id: int  # 用户ID
+     feedback_type: str  # 反馈内容
+     feedback_content: str  # 反馈选项
  
  # 创建一个 POST 请求的路由，路径为 "/submit-content_feedback/"
 @router.post("/submit-content_feedback/")
@@ -19,9 +17,9 @@ class FeedbackRequest(BaseModel):
 async def submit_feedback(request: FeedbackRequest):
      try:
          # 插入反馈数据到数据库中
-         query = """INSERT INTO content_feedbacks (rating, feedback, feedback_option, message, question) 
-                    VALUES (%s, %s, %s, %s, %s)"""
-         params = (request.rating, request.feedback, request.feedbackOption, request.message, request.question)
+         query = """INSERT INTO user_feedback (user_id, feedback_type, feedback_content) 
+                    VALUES (%s, %s, %s)"""
+         params = (request.user_id, request.feedback_type, request.feedback_content)
          execute_update(query, params)
  
          # 返回成功的响应

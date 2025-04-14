@@ -89,7 +89,7 @@ async def get_users(
                 execute_update(
                     """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                        VALUES (%s, %s, %s, NOW())""", 
-                    (admin_id, "查询用户列表", f"管理员{admin_id}查询用户列表")
+                    (admin_id, "查询", f"管理员{admin_id}查询用户列表")
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程
@@ -143,7 +143,7 @@ async def update_user_status(request: UserStatusRequest):
         execute_update(
             """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                VALUES (%s, %s, %s, NOW())""", 
-            (admin_id, operation_type, f"管理员{admin_id}操作用户{request.user_id}")
+            (admin_id, "更新", f"管理员{admin_id}操作用户{request.user_id}")
         )
         
         return {
@@ -194,7 +194,7 @@ async def get_user_detail(
                 execute_update(
                     """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                        VALUES (%s, %s, %s, NOW())""", 
-                    (admin_id, "查看用户详情", f"管理员{admin_id}查看用户{user_id}详情")
+                    (admin_id, "查询", f"管理员{admin_id}查看用户{user_id}详情")
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程

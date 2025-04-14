@@ -81,7 +81,7 @@ async def get_operation_logs(
                 execute_update(
                     """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                        VALUES (%s, %s, %s, NOW())""", 
-                    (current_admin_id, "query", f"管理员{current_admin_id}查询操作日志")
+                    (current_admin_id, "查询", f"管理员{current_admin_id}查询操作日志")
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程

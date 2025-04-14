@@ -98,7 +98,7 @@ async def update_system_config(
         admin_id = config_update.admin_id
         execute_update(
             "INSERT INTO operation_logs (admin_id, operation_type, operation_desc) VALUES (%s, %s, %s)",
-            (admin_id, "update", f"管理员{admin_id}更新系统配置{config_id}")
+            (admin_id, "更新", f"管理员{admin_id}更新系统配置{config_id}")
         )
         
         # 获取更新后的配置
@@ -174,7 +174,7 @@ async def create_system_version(
         admin_id = version.admin_id
         execute_update(
             "INSERT INTO operation_logs (admin_id, operation_type, operation_desc) VALUES (%s, %s, %s)",
-            (admin_id, "create", f"管理员{admin_id}添加系统版本{version.version_number}")
+            (admin_id, "创建", f"管理员{admin_id}添加系统版本{version.version_number}")
         )
         
         # 获取新添加的版本
@@ -226,7 +226,7 @@ async def set_current_version(
         admin_id = request.admin_id
         execute_update(
             "INSERT INTO operation_logs (admin_id, operation_type, operation_desc) VALUES (%s, %s, %s)",
-            (admin_id, "update", f"管理员{admin_id}将版本{existing_version[0]['version_number']}设为当前版本")
+            (admin_id, "更新", f"管理员{admin_id}将版本{existing_version[0]['version_number']}设为当前版本")
         )
         
         # 获取更新后的版本
