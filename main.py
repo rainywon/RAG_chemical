@@ -27,6 +27,7 @@ from routers.admin.settings.SystemParams import router as system_params_router
 from routers.admin.content.CategoryManager import router as category_manager_router
 from routers.admin.content.DocumentManager import router as document_manager_router
 from routers.admin.content.EmergencyPlanManager import router as emergency_plan_manager_router
+from routers.admin.AdminDashboard import router as admin_dashboard_router
 # 创建 FastAPI 应用实例
 app = FastAPI()
 
@@ -62,6 +63,7 @@ app.include_router(system_params_router)  # 包含 系统参数设置 路由
 app.include_router(category_manager_router)  # 包含 知识库文件管理 路由
 app.include_router(document_manager_router)  # 包含 安全资料库管理 路由
 app.include_router(emergency_plan_manager_router)  # 包含 应急预案管理 路由
+app.include_router(admin_dashboard_router)  # 包含 管理员仪表盘 路由
 
 if __name__ == '__main__':
     # 启动应用并监听 127.0.0.1:8000 端口，启用自动重载功能

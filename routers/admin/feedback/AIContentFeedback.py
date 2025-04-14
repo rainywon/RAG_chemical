@@ -41,7 +41,8 @@ def check_and_update_content_feedbacks_table():
                 ADD COLUMN replied_at TIMESTAMP NULL
             """
             execute_update(alter_query)
-            print("content_feedbacks表已更新，添加了status, admin_reply和replied_at列")
+            # 保留重要信息而不是简单调试
+            print("数据库更新: content_feedbacks表已更新，添加了status, admin_reply和replied_at列")
         
         # 更新所有没有状态的记录为pending
         update_query = """
@@ -75,8 +76,6 @@ async def get_content_feedback_list(
     从content_feedbacks表获取数据
     """
     try:
-        print(f"接收到的参数: page={page}, page_size={page_size}, rating={rating}, feedback_option={feedback_option}, status={status}, keyword={keyword}, current_admin_id={current_admin_id}")
-        
         # 计算偏移量
         offset = (page - 1) * page_size
         
@@ -128,8 +127,6 @@ async def get_content_feedback_list(
         
         # 查询符合条件的总记录数
         count_query = f"SELECT COUNT(*) as count FROM ({query}) as filtered_feedback"
-        print(f"执行统计查询: {count_query}")
-        print(f"查询参数: {params}")
         count_result = execute_query(count_query, tuple(params))
         total_count = count_result[0]['count'] if count_result else 0
         
@@ -139,8 +136,6 @@ async def get_content_feedback_list(
         params.append(offset)
         
         # 查询反馈列表
-        print(f"执行列表查询: {query}")
-        print(f"查询参数: {params}")
         feedback_list = execute_query(query, tuple(params))
         
         # 处理日期时间格式
