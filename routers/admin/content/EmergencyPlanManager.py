@@ -24,7 +24,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # 设置文件存储路径
-EMERGENCY_PLAN_PATH = r"C:\wu\RAG\data\emergency_document"
+EMERGENCY_PLAN_PATH = r"C:\Users\coins\Desktop\chemical_rag\data\标准性文件"
+# C:\Users\coins\Desktop\chemical_rag\data\标准性文件
+# C:\wu\RAG\data\safey_document
 # 确保路径存在
 os.makedirs(EMERGENCY_PLAN_PATH, exist_ok=True)
 

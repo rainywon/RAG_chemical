@@ -10,7 +10,7 @@ import anyio
 
 router = APIRouter()
 config = Config()
-rag_system = RAGSystem(config)
+# rag_system = RAGSystem(config)
 
 
 class QueryRequest(BaseModel):

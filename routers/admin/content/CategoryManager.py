@@ -24,7 +24,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # 设置文件存储路径
-KNOWLEDGE_BASE_PATH = r"C:\wu\RAG\data\chunks"
+KNOWLEDGE_BASE_PATH = r"C:\Users\coins\Desktop\chunks"
+# C:\Users\coins\Desktop\chunks
+# C:\wu\RAG\data\chunks
 # 确保路径存在
 os.makedirs(KNOWLEDGE_BASE_PATH, exist_ok=True)
 
