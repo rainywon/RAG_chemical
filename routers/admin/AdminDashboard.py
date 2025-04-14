@@ -33,9 +33,9 @@ async def get_dashboard_stats(admin_id: Optional[int] = Query(None, description=
         try:
             # 从文件系统获取内容统计数据，不再从数据库中查询
             # 设置相关文件路径，确保与content目录下的代码保持一致
-            KNOWLEDGE_BASE_PATH = r"C:\Users\coins\Desktop\chemical_rag\data\知识库"
-            SAFETY_DOCUMENT_PATH = r"C:\Users\coins\Desktop\chemical_rag\data\标准性文件"
-            EMERGENCY_PLAN_PATH = r"C:\Users\coins\Desktop\chemical_rag\data\标准性文件"
+            KNOWLEDGE_BASE_PATH = r"C:\Users\coins\Desktop\chunks"
+            SAFETY_DOCUMENT_PATH = r"C:\Users\coins\Desktop\chemical\chemical_rag\data\标准性文件"
+            EMERGENCY_PLAN_PATH = r"C:\Users\coins\Desktop\chemical\chemical_rag\data\标准性文件"
             
             # 确保路径存在
             os.makedirs(KNOWLEDGE_BASE_PATH, exist_ok=True)

@@ -15,16 +15,16 @@ import shutil
 from pathlib import Path
 import glob
 import logging
-
+from config import Config
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # 初始化 APIRouter 实例，用于定义路由
 router = APIRouter()
-
+config=Config()
 # 设置文件存储路径
-EMERGENCY_PLAN_PATH = r"C:\Users\coins\Desktop\chemical_rag\data\标准性文件"
+EMERGENCY_PLAN_PATH = config.emergency_plan_path
 # C:\Users\coins\Desktop\chemical_rag\data\标准性文件
 # C:\wu\RAG\data\safey_document
 # 确保路径存在

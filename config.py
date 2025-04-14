@@ -21,6 +21,12 @@ class Config:
         self.cache_dir = "cache"  # 缓存目录
         self.max_backups = 5  # 保留的最大备份数量
 
+        # ████████ 内容管理路径配置 ████████
+        # 知识库、安全资料库和应急预案文件路径
+        self.knowledge_base_path = r"C:\Users\coins\Desktop\chunks"  # 知识库文件目录，存放Excel文件
+        self.safety_document_path = r"C:\Users\coins\Desktop\chemical\chemical_rag\data\标准性文件"  # 安全资料库目录，存放PDF、Word文档
+        self.emergency_plan_path = r"C:\Users\coins\Desktop\chemical\chemical_rag\data\标准性文件"  # 应急预案目录，存放PDF、Word文档
+
         # ████████ 硬件配置 ████████
         self.cuda_lazy_init = True  # 延迟CUDA初始化（避免显存立即被占用）
         self.device = "cuda" if torch.cuda.is_available() else "cpu"  # 自动检测设备

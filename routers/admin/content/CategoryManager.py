@@ -15,6 +15,8 @@ import shutil
 from pathlib import Path
 import glob
 import logging
+# 导入配置
+from config import Config
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -23,10 +25,11 @@ logger = logging.getLogger(__name__)
 # 初始化 APIRouter 实例，用于定义路由
 router = APIRouter()
 
+# 获取配置实例
+config = Config()
+
 # 设置文件存储路径
-KNOWLEDGE_BASE_PATH = r"C:\Users\coins\Desktop\chunks"
-# C:\Users\coins\Desktop\chunks
-# C:\wu\RAG\data\chunks
+KNOWLEDGE_BASE_PATH = config.knowledge_base_path
 # 确保路径存在
 os.makedirs(KNOWLEDGE_BASE_PATH, exist_ok=True)
 
