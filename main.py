@@ -16,6 +16,7 @@ from routers.user.content_feedback import router as content_feedback_router
 from routers.user.system import router as system_router
 from routers.user.chat_history import router as chat_history_router
 from routers.user.SaftyFiles import router as safety_files_router
+from routers.user.EmergencyFiles import router as emergency_files_router
 from routers.admin.monitor.ConversationStat import router as conversation_stat_router
 from routers.admin.monitor.UserActivity import router as user_activity_router
 from routers.admin.users.UserManagement import router as user_management_router
@@ -68,7 +69,7 @@ app.include_router(document_manager_router)  # 包含 安全资料库管理 路�
 app.include_router(emergency_plan_manager_router)  # 包含 应急预案管理 路由
 app.include_router(admin_dashboard_router)  # 包含 管理员仪表盘 路由
 app.include_router(admin_layout_router)  # 包含 管理员布局 路由
-
+app.include_router(emergency_files_router)  # 包含 应急文件 路由
 if __name__ == '__main__':
     # 启动应用并监听 127.0.0.1:8000 端口，启用自动重载功能
     uvicorn.run("main:app",
