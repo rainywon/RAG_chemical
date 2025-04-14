@@ -11,7 +11,7 @@ import json
 # 引入类型提示
 from typing import List, Dict, Any, Optional
 # 引入管理员认证依赖函数
-from routers.login import get_current_admin
+from routers.user.login import get_current_admin
 
 # 初始化 APIRouter 实例，用于定义路由
 router = APIRouter()

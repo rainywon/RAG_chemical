@@ -5,16 +5,16 @@ from fastapi import FastAPI
 # 引入 CORSMiddleware，用于处理跨源资源共享（CORS）问题
 from fastapi.middleware.cors import CORSMiddleware
 # 从 routers 目录中导入不同模块的路由
-from routers.query import router as query_router
-from routers.sms import router as sms_router
-from routers.login import router as login_router
-from routers.submit_feedback import router as submit_feedback_router
-from routers.sms_report import router as sms_report_router
-from routers.register import router as register_router
-from routers.user_feedback import router as user_feedback_router
-from routers.content_feedback import router as content_feedback_router
-from routers.system import router as system_router
-from routers.chat_history import router as chat_history_router
+from routers.user.query import router as query_router
+from routers.user.sms import router as sms_router
+from routers.user.login import router as login_router
+from routers.user.submit_feedback import router as submit_feedback_router
+from routers.user.sms_report import router as sms_report_router
+from routers.user.register import router as register_router
+from routers.user.user_feedback import router as user_feedback_router
+from routers.user.content_feedback import router as content_feedback_router
+from routers.user.system import router as system_router
+from routers.user.chat_history import router as chat_history_router
 from routers.admin.monitor.ConversationStat import router as conversation_stat_router
 from routers.admin.monitor.UserActivity import router as user_activity_router
 from routers.admin.users.UserManagement import router as user_management_router
@@ -28,6 +28,7 @@ from routers.admin.content.CategoryManager import router as category_manager_rou
 from routers.admin.content.DocumentManager import router as document_manager_router
 from routers.admin.content.EmergencyPlanManager import router as emergency_plan_manager_router
 from routers.admin.AdminDashboard import router as admin_dashboard_router
+from routers.admin.AdminLayout import router as admin_layout_router
 # 创建 FastAPI 应用实例
 app = FastAPI()
 
@@ -64,6 +65,7 @@ app.include_router(category_manager_router)  # 包含 知识库文件管理 路�
 app.include_router(document_manager_router)  # 包含 安全资料库管理 路由
 app.include_router(emergency_plan_manager_router)  # 包含 应急预案管理 路由
 app.include_router(admin_dashboard_router)  # 包含 管理员仪表盘 路由
+app.include_router(admin_layout_router)  # 包含 管理员布局 路由
 
 if __name__ == '__main__':
     # 启动应用并监听 127.0.0.1:8000 端口，启用自动重载功能

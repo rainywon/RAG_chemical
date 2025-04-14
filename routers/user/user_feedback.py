@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import Optional
 from database import execute_query, execute_update
-from routers.login import get_current_user
+from routers.user.login import get_current_user
 
 # 初始化 APIRouter 实例，用于定义路由
 router = APIRouter()

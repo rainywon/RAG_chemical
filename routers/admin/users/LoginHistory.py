@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 # 引入 typing 模块中的 Optional 和 List 类型
 from typing import Optional, List
 # 引入管理员认证依赖函数
-from routers.login import get_current_admin
+from routers.user.login import get_current_admin
 
 # 初始化 APIRouter 实例，用于定义路由
 router = APIRouter()

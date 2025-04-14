@@ -13,7 +13,7 @@ from datetime import datetime
 # 引入 json 模块处理 JSON 数据
 import json
 # 引入用户认证依赖函数
-from routers.login import get_current_user
+from routers.user.login import get_current_user
 
 # 初始化 APIRouter 实例，用于定义路由
 router = APIRouter()

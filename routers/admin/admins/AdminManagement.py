@@ -11,7 +11,7 @@ import re
 import hashlib
 from datetime import datetime
 from database import execute_query, execute_update
-from routers.login import get_current_admin
+from routers.user.login import get_current_admin
 
 # 初始化 APIRouter 实例
 router = APIRouter()
