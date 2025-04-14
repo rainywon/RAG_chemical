@@ -15,6 +15,7 @@ from routers.user.user_feedback import router as user_feedback_router
 from routers.user.content_feedback import router as content_feedback_router
 from routers.user.system import router as system_router
 from routers.user.chat_history import router as chat_history_router
+from routers.user.SaftyFiles import router as safety_files_router
 from routers.admin.monitor.ConversationStat import router as conversation_stat_router
 from routers.admin.monitor.UserActivity import router as user_activity_router
 from routers.admin.users.UserManagement import router as user_management_router
@@ -52,6 +53,7 @@ app.include_router(user_feedback_router)  # 包含 用户反馈 路由
 app.include_router(content_feedback_router)  # 包含 内容反馈 路由
 app.include_router(system_router)  # 包含 系统 路由
 app.include_router(chat_history_router)  # 包含 聊天历史 路由
+app.include_router(safety_files_router)  # 包含 安全文件 路由
 app.include_router(conversation_stat_router)  # 包含 对话统计 路由
 app.include_router(user_activity_router)  # 包含 用户活跃度 路由
 app.include_router(user_management_router)  # 包含 用户管理 路由
