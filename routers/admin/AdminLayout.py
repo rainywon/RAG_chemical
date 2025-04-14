@@ -4,7 +4,7 @@
 管理员个人资料和密码管理模块
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query, Body
+from fastapi import APIRouter, HTTPException, Depends, Query, Body, Request
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field, validator
 import re
@@ -18,7 +18,7 @@ router = APIRouter()
 
 # 请求模型
 class AdminProfileUpdate(BaseModel):
-    admin_id: int = Field(..., description="管理员ID")
+    admin_id: Optional[int] = Field(None, description="管理员ID (可选，将从token中获取)")
     full_name: str = Field(..., description="姓名")
     email: EmailStr = Field(..., description="邮箱")
     phone_number: str = Field(..., description="手机号")
@@ -36,7 +36,7 @@ class AdminProfileUpdate(BaseModel):
         return v
 
 class AdminPasswordUpdate(BaseModel):
-    admin_id: int = Field(..., description="管理员ID")
+    admin_id: Optional[int] = Field(None, description="管理员ID (可选，将从token中获取)")
     old_password: str = Field(..., description="旧密码")
     new_password: str = Field(..., description="新密码")
     confirm_password: str = Field(..., description="确认新密码")
@@ -64,16 +64,39 @@ def md5_password(password: str) -> str:
 
 # API路由
 @router.get("/admin/profile", tags=["管理员个人信息"])
-async def get_admin_profile(admin_id: int = Query(..., description="管理员ID")):
+async def get_admin_profile(request: Request):
     """
-    获取管理员的个人资料
+    获取管理员的个人资料（通过Token认证）
     """
     try:
-        # 查询管理员信息
+        # 从Authorization头获取token
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return {
+                "code": 401,
+                "message": "无效的认证信息"
+            }
+        
+        token = auth_header.split(' ')[1]
+        
+        # 查询token对应的管理员ID
         try:
-            # 打印请求参数
-            print(f"正在查询管理员信息，admin_id: {admin_id}")
+            query = """
+                SELECT admin_id 
+                FROM admin_tokens 
+                WHERE token = %s AND is_valid = 1 AND expire_at > NOW()
+            """
+            token_result = execute_query(query, (token,))
             
+            if not token_result:
+                return {
+                    "code": 401,
+                    "message": "无效的token或token已过期"
+                }
+            
+            admin_id = token_result[0]['admin_id']
+            
+            # 查询管理员信息
             query = """
                 SELECT 
                     admin_id, phone_number, full_name, email, role, status, 
@@ -86,29 +109,10 @@ async def get_admin_profile(admin_id: int = Query(..., description="管理员ID"
             admin_info = execute_query(query, (admin_id,))
             
             if not admin_info:
-                # 检查是否为测试环境的默认管理员ID 1
-                if admin_id == 1:
-                    print("找不到ID为1的管理员，尝试查询任意一个管理员作为默认值")
-                    query = """
-                        SELECT 
-                            admin_id, phone_number, full_name, email, role, status, 
-                            last_login_time, created_at, updated_at
-                        FROM 
-                            admins
-                        LIMIT 1
-                    """
-                    admin_info = execute_query(query, ())
-                    
-                    if not admin_info:
-                        return {
-                            "code": 404,
-                            "message": "系统中不存在管理员信息"
-                        }
-                else:
-                    return {
-                        "code": 404,
-                        "message": "管理员信息不存在"
-                    }
+                return {
+                    "code": 404,
+                    "message": "管理员信息不存在"
+                }
             
             admin_data = admin_info[0]
             
@@ -117,7 +121,6 @@ async def get_admin_profile(admin_id: int = Query(..., description="管理员ID"
             admin_data['created_at'] = admin_data['created_at'].strftime("%Y-%m-%d %H:%M:%S") if admin_data['created_at'] else ""
             admin_data['updated_at'] = admin_data['updated_at'].strftime("%Y-%m-%d %H:%M:%S") if admin_data['updated_at'] else ""
             
-            print(f"成功获取管理员信息: {admin_data['full_name']}")
         except Exception as e:
             # 记录错误日志
             traceback_str = traceback.format_exc()
@@ -133,7 +136,7 @@ async def get_admin_profile(admin_id: int = Query(..., description="管理员ID"
             execute_update(
                 """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                    VALUES (%s, %s, %s, NOW())""", 
-                (admin_id, "查询", f"管理员{admin_id}查询个人资料")
+                (admin_id, "查询", f"管理员{admin_data['full_name']}查询个人资料")
             )
         except Exception as log_error:
             # 仅记录日志错误，不影响主流程
@@ -157,12 +160,57 @@ async def get_admin_profile(admin_id: int = Query(..., description="管理员ID"
 
 
 @router.put("/admin/profile", tags=["管理员个人信息"])
-async def update_admin_profile(profile_data: AdminProfileUpdate):
+async def update_admin_profile(request: Request, profile_data: AdminProfileUpdate):
     """
-    更新管理员的个人资料
+    更新管理员的个人资料（通过Token认证）
     """
     try:
-        admin_id = profile_data.admin_id
+        # 从Authorization头获取token
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return {
+                "code": 401,
+                "message": "无效的认证信息"
+            }
+        
+        token = auth_header.split(' ')[1]
+        
+        # 查询token对应的管理员ID
+        try:
+            query = """
+                SELECT admin_id 
+                FROM admin_tokens 
+                WHERE token = %s AND is_valid = 1 AND expire_at > NOW()
+            """
+            token_result = execute_query(query, (token,))
+            
+            if not token_result:
+                return {
+                    "code": 401,
+                    "message": "无效的token或token已过期"
+                }
+            
+            admin_id = token_result[0]['admin_id']
+            
+            # 确保请求中的admin_id与token中的一致（如果请求中提供了admin_id）
+            if profile_data.admin_id is not None and profile_data.admin_id != admin_id:
+                return {
+                    "code": 403,
+                    "message": "无权修改其他管理员的信息"
+                }
+                
+            # 设置admin_id（如果请求中没有提供）
+            if profile_data.admin_id is None:
+                profile_data.admin_id = admin_id
+        except Exception as e:
+            # 记录错误日志
+            traceback_str = traceback.format_exc()
+            print(f"查询管理员信息失败: {str(e)}")
+            print(f"错误详情: {traceback_str}")
+            return {
+                "code": 500,
+                "message": f"认证失败: {str(e)}"
+            }
         
         # 先检查手机号是否已被其他管理员使用
         try:
@@ -186,6 +234,15 @@ async def update_admin_profile(profile_data: AdminProfileUpdate):
                 "code": 500,
                 "message": f"检查手机号失败: {str(e)}"
             }
+        
+        # 获取管理员姓名用于日志记录
+        try:
+            query = "SELECT full_name FROM admins WHERE admin_id = %s"
+            admin_info = execute_query(query, (admin_id,))
+            admin_name = admin_info[0]['full_name'] if admin_info else f"管理员{admin_id}"
+        except Exception as e:
+            admin_name = f"管理员{admin_id}"
+            print(f"获取管理员姓名失败: {str(e)}")
         
         # 更新管理员信息
         try:
@@ -216,7 +273,7 @@ async def update_admin_profile(profile_data: AdminProfileUpdate):
             execute_update(
                 """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                    VALUES (%s, %s, %s, NOW())""", 
-                (admin_id, "更新", f"管理员{admin_id}更新个人资料（含手机号）")
+                (admin_id, "更新", f"{admin_name}更新了个人资料")
             )
         except Exception as log_error:
             # 仅记录日志错误，不影响主流程
@@ -239,17 +296,62 @@ async def update_admin_profile(profile_data: AdminProfileUpdate):
 
 
 @router.put("/admin/password", tags=["管理员个人信息"])
-async def update_admin_password(password_data: AdminPasswordUpdate):
+async def update_admin_password(request: Request, password_data: AdminPasswordUpdate):
     """
-    修改管理员的密码
+    修改管理员的密码（通过Token认证）
     """
     try:
-        admin_id = password_data.admin_id
+        # 从Authorization头获取token
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return {
+                "code": 401,
+                "message": "无效的认证信息"
+            }
+        
+        token = auth_header.split(' ')[1]
+        
+        # 查询token对应的管理员ID
+        try:
+            query = """
+                SELECT admin_id 
+                FROM admin_tokens 
+                WHERE token = %s AND is_valid = 1 AND expire_at > NOW()
+            """
+            token_result = execute_query(query, (token,))
+            
+            if not token_result:
+                return {
+                    "code": 401,
+                    "message": "无效的token或token已过期"
+                }
+            
+            admin_id = token_result[0]['admin_id']
+            
+            # 确保请求中的admin_id与token中的一致（如果请求中提供了admin_id）
+            if password_data.admin_id is not None and password_data.admin_id != admin_id:
+                return {
+                    "code": 403,
+                    "message": "无权修改其他管理员的密码"
+                }
+                
+            # 设置admin_id（如果请求中没有提供）
+            if password_data.admin_id is None:
+                password_data.admin_id = admin_id
+        except Exception as e:
+            # 记录错误日志
+            traceback_str = traceback.format_exc()
+            print(f"查询管理员信息失败: {str(e)}")
+            print(f"错误详情: {traceback_str}")
+            return {
+                "code": 500,
+                "message": f"认证失败: {str(e)}"
+            }
         
         # 检查旧密码是否正确
         try:
             check_query = """
-                SELECT password FROM admins WHERE admin_id = %s
+                SELECT password, full_name FROM admins WHERE admin_id = %s
             """
             admin_info = execute_query(check_query, (admin_id,))
             
@@ -260,6 +362,7 @@ async def update_admin_password(password_data: AdminPasswordUpdate):
                 }
             
             stored_password = admin_info[0]['password']
+            admin_name = admin_info[0]['full_name']
             old_password_md5 = md5_password(password_data.old_password)
             
             if stored_password != old_password_md5:
@@ -297,7 +400,7 @@ async def update_admin_password(password_data: AdminPasswordUpdate):
             execute_update(
                 """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
                    VALUES (%s, %s, %s, NOW())""", 
-                (admin_id, "更新", f"管理员{admin_id}修改了密码")
+                (admin_id, "更新", f"{admin_name}修改了密码")
             )
         except Exception as log_error:
             # 仅记录日志错误，不影响主流程

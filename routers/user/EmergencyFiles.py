@@ -216,4 +216,4 @@ async def download_emergency_file(
             media_type='application/octet-stream'
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) 
