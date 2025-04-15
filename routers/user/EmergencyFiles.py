@@ -6,12 +6,14 @@ import os
 from datetime import datetime
 from database import execute_query, execute_update
 from config import Config
+import logging
 
 router = APIRouter()
 security = HTTPBearer()
 
 # 获取配置实例
 config = Config()
+logger = logging.getLogger(__name__)
 
 # 定义文件信息模型
 class FileInfo(BaseModel):
@@ -48,8 +50,21 @@ async def get_current_user(request: Request):
         )
         
         if admin_result:
+            admin_id = admin_result[0]['admin_id']
+            # 获取管理员的详细信息
+            admin_info = execute_query(
+                "SELECT admin_id, full_name, phone_number FROM admins WHERE admin_id = %s",
+                (admin_id,)
+            )
+            if admin_info:
+                return {
+                    "id": admin_id,
+                    "role": "admin",
+                    "name": admin_info[0]['full_name'],
+                    "mobile": admin_info[0]['phone_number']
+                }
             return {
-                "id": admin_result[0]['admin_id'],
+                "id": admin_id,
                 "role": "admin"
             }
         
@@ -60,13 +75,28 @@ async def get_current_user(request: Request):
         )
         
         if user_result:
+            user_id = user_result[0]['user_id']
+            # 获取用户的详细信息
+            user_info = execute_query(
+                "SELECT user_id, mobile FROM users WHERE user_id = %s",
+                (user_id,)
+            )
+            if user_info:
+                return {
+                    "id": user_id,
+                    "role": "user",
+                    "mobile": user_info[0]['mobile'],
+                    "name": f"用户{user_info[0]['mobile']}"
+                }
             return {
-                "id": user_result[0]['user_id'],
+                "id": user_id,
                 "role": "user"
             }
         
+        # 如果没有找到对应token，抛出异常
         raise HTTPException(status_code=401, detail="无效的token")
     except Exception as e:
+        logger.error(f"验证用户身份时出错: {str(e)}")
         raise HTTPException(status_code=401, detail=str(e))
 
 # 记录操作日志
@@ -76,25 +106,14 @@ async def log_operation(user_info: dict, operation_type: str, operation_desc: st
         ip_address = request.client.host if request else None
         user_agent = request.headers.get('user-agent') if request else None
         
-        # 根据用户角色获取用户信息
-        if user_info['role'] == 'admin':
-            admin_result = execute_query(
-                "SELECT full_name FROM admins WHERE admin_id = %s",
-                (user_info['id'],)
-            )
-            if admin_result:
-                user_name = admin_result[0]['full_name']
-            else:
-                return
+        # 获取用户名
+        user_name = ""
+        if "name" in user_info:
+            user_name = user_info["name"]
+        elif "mobile" in user_info:
+            user_name = f"用户{user_info['mobile']}"
         else:
-            user_result = execute_query(
-                "SELECT mobile FROM users WHERE user_id = %s",
-                (user_info['id'],)
-            )
-            if user_result:
-                user_name = f"用户{user_result[0]['mobile']}"
-            else:
-                return
+            user_name = f"{'管理员' if user_info['role'] == 'admin' else '用户'}{user_info['id']}"
         
         # 创建操作日志记录
         if user_info['role'] == 'admin':
@@ -111,7 +130,7 @@ async def log_operation(user_info: dict, operation_type: str, operation_desc: st
             )
     except Exception as e:
         # 记录错误但不中断主要流程
-        print(f"记录操作日志失败: {str(e)}")
+        logger.error(f"记录操作日志失败: {str(e)}")
 
 # 获取文件列表
 @router.get("/emergency_files/", response_model=FileListResponse)
@@ -132,7 +151,7 @@ async def get_emergency_files(
         )
         
         # 使用配置中的文件存储路径
-        base_path = "C:\\Users\\coins\\Desktop\\chemical\\chemical_rag\\data\\规范性文件"
+        base_path = config.safety_document_path
         
         # 获取所有文件
         all_files = []
@@ -181,7 +200,7 @@ async def download_emergency_file(
 ):
     try:
         # 使用配置中的文件存储路径
-        base_path = "C:\\Users\\coins\\Desktop\\chemical\\chemical_rag\\data\\规范性文件"
+        base_path = config.safety_document_path
         
         # 获取所有文件
         all_files = []

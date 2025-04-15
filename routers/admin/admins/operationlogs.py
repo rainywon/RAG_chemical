@@ -1,5 +1,6 @@
 # 引入 FastAPI 中的 APIRouter 和 HTTPException 模块，用于创建路由和处理异常
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 # 引入 Pydantic 中的 BaseModel 类，用于定义请求体的数据结构和验证
 from pydantic import BaseModel
 # 从数据库模块导入 execute_query 和 execute_update 函数，用于执行查询和更新操作
@@ -8,9 +9,46 @@ from database import execute_query, execute_update
 from datetime import datetime, timedelta
 # 引入 typing 模块中的 Optional 和 List 类型
 from typing import Optional, List
+# 引入日志模块
+import logging
+import traceback
+
+# 配置日志
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # 初始化 APIRouter 实例，用于定义路由
 router = APIRouter()
+security = HTTPBearer()
+
+# 获取当前管理员ID的函数
+async def get_current_admin(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        # 从token中获取管理员ID
+        token = credentials.credentials
+        result = execute_query(
+            "SELECT admin_id FROM admin_tokens WHERE token = %s AND is_valid = 1 AND expire_at > NOW()",
+            (token,)
+        )
+        
+        if not result:
+            raise HTTPException(status_code=401, detail="无效的token或token已过期")
+            
+        return result[0]['admin_id']
+    except Exception as e:
+        logger.error(f"获取管理员ID失败: {str(e)}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail="获取管理员ID失败")
+
+# 记录管理员操作的函数
+async def log_admin_operation(admin_id: int, operation_type: str, operation_desc: str):
+    try:
+        execute_update(
+            """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
+               VALUES (%s, %s, %s, NOW())""", 
+            (admin_id, operation_type, operation_desc)
+        )
+    except Exception as e:
+        logger.error(f"记录操作日志失败: {str(e)}\n{traceback.format_exc()}")
 
 # 获取操作日志列表接口
 @router.get("/admin/operation-logs", tags=["日志管理"])
@@ -21,12 +59,15 @@ async def get_operation_logs(
     operation_type: Optional[str] = Query(None, description="操作类型筛选"),
     start_date: Optional[str] = Query(None, description="开始日期"),
     end_date: Optional[str] = Query(None, description="结束日期"),
-    current_admin_id: Optional[int] = Query(None, description="当前管理员ID")
+    credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     """
     获取操作日志列表，支持分页和筛选
     """
     try:
+        # 获取当前管理员ID
+        current_admin_id = await get_current_admin(credentials)
+        
         # 计算偏移量
         offset = (page - 1) * page_size
         
@@ -75,17 +116,8 @@ async def get_operation_logs(
         for log in logs_list:
             log['created_at'] = log['created_at'].strftime("%Y-%m-%d %H:%M:%S") if log['created_at'] else None
         
-        # 记录操作日志 (如果提供了管理员ID)
-        if current_admin_id:
-            try:
-                execute_update(
-                    """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
-                       VALUES (%s, %s, %s, NOW())""", 
-                    (current_admin_id, "查询", f"管理员{current_admin_id}查询操作日志")
-                )
-            except Exception as log_error:
-                # 仅记录日志错误，不影响主流程
-                print(f"记录操作日志失败: {str(log_error)}")
+        # 记录操作日志
+        await log_admin_operation(current_admin_id, "查询", f"管理员{current_admin_id}查询操作日志")
         
         return {
             "code": 200,
@@ -96,21 +128,22 @@ async def get_operation_logs(
             }
         }
     except Exception as e:
-        # 记录错误日志
-        print(f"获取操作日志失败: {str(e)}")
-        # 返回错误响应
+        logger.error(f"获取操作日志失败: {str(e)}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"获取操作日志失败: {str(e)}")
 
 # 获取操作日志详情接口
 @router.get("/admin/operation-logs/{log_id}", tags=["日志管理"])
 async def get_operation_log_detail(
     log_id: int,
-    current_admin_id: Optional[int] = Query(None, description="当前管理员ID")
+    credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     """
     获取操作日志详情
     """
     try:
+        # 获取当前管理员ID
+        current_admin_id = await get_current_admin(credentials)
+        
         # 查询日志详情
         log_detail = execute_query(
             """SELECT 
@@ -133,17 +166,8 @@ async def get_operation_log_detail(
         log = log_detail[0]
         log['created_at'] = log['created_at'].strftime("%Y-%m-%d %H:%M:%S") if log['created_at'] else None
         
-        # 记录操作日志 (如果提供了管理员ID)
-        if current_admin_id:
-            try:
-                execute_update(
-                    """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
-                       VALUES (%s, %s, %s, NOW())""", 
-                    (current_admin_id, "查询", f"管理员{current_admin_id}查看日志{log_id}详情")
-                )
-            except Exception as log_error:
-                # 仅记录日志错误，不影响主流程
-                print(f"记录操作日志失败: {str(log_error)}")
+        # 记录操作日志
+        await log_admin_operation(current_admin_id, "查询", f"管理员{current_admin_id}查看日志{log_id}详情")
         
         return {
             "code": 200,
@@ -151,7 +175,5 @@ async def get_operation_log_detail(
             "data": log
         }
     except Exception as e:
-        # 记录错误日志
-        print(f"获取日志详情失败: {str(e)}")
-        # 返回错误响应
+        logger.error(f"获取日志详情失败: {str(e)}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"获取日志详情失败: {str(e)}")

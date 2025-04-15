@@ -3,32 +3,73 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 # 引入 Pydantic 中的 BaseModel 类，用于定义请求体的数据结构和验证
 from pydantic import BaseModel
 # 从数据库模块导入 execute_query 和 execute_update 函数，用于执行查询和更新操作
-from database import execute_query
+from database import execute_query, execute_update
 # 引入时间模块处理日期范围
 from datetime import datetime, timedelta
 # 引入 typing 模块中的 Optional 和 List 类型
 from typing import Optional, List
+# 引入日志模块
+import logging
+import traceback
 # 引入管理员认证依赖函数
 from routers.user.login import get_current_admin
+# 引入安全认证相关
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 # 初始化 APIRouter 实例，用于定义路由
 router = APIRouter()
 
+# 配置日志
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# 初始化安全认证
+security = HTTPBearer()
+
+# 安全记录管理员操作
+def log_admin_operation(admin_id: int, operation_type: str, description: str):
+    if not admin_id:
+        return
+    
+    try:
+        # 获取管理员姓名
+        admin_result = execute_query(
+            """SELECT full_name FROM admins WHERE admin_id = %s""",
+            (admin_id,)
+        )
+        
+        admin_name = admin_result[0]['full_name'] if admin_result else f"管理员{admin_id}"
+        
+        # 在描述前添加管理员姓名
+        full_description = f"{admin_name}{description}"
+        
+        execute_update(
+            """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
+               VALUES (%s, %s, %s, NOW())""",
+            (admin_id, operation_type, full_description)
+        )
+    except Exception as e:
+        # 记录错误但不中断主要流程
+        logger.error(f"记录操作日志失败: {str(e)}")
+
 # 获取登录历史记录
 @router.get("/admin/login-history/all", tags=["用户管理"])
 async def get_login_history(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
     page: int = Query(1, description="页码"),
     page_size: int = Query(10, description="每页数量"),
     user_id: Optional[int] = Query(None, description="用户ID筛选"),
     mobile: Optional[str] = Query(None, description="手机号筛选"),
     start_date: Optional[str] = Query(None, description="开始日期"),
-    end_date: Optional[str] = Query(None, description="结束日期"),
-    admin_id: Optional[int] = Query(None, description="管理员ID")
+    end_date: Optional[str] = Query(None, description="结束日期")
 ):
     """
     获取用户登录历史记录，支持分页和筛选
     """
     try:
+        # 获取管理员ID
+        admin_id = await get_current_admin(credentials)
+        
         # 计算偏移量
         offset = (page - 1) * page_size
         
@@ -82,18 +123,9 @@ async def get_login_history(
             record['login_time'] = record['login_time'].strftime("%Y-%m-%d %H:%M:%S") if record['login_time'] else ""
             record['expire_at'] = record['expire_at'].strftime("%Y-%m-%d %H:%M:%S") if record['expire_at'] else ""
         
-        # 如果提供了管理员ID，记录管理员操作
-        if admin_id:
-            try:
-                execute_query(
-                    """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
-                       VALUES (%s, %s, %s, NOW())""", 
-                    (admin_id, "查询", f"管理员{admin_id}查询用户登录历史")
-                )
-            except Exception as log_error:
-                # 记录日志错误，但不影响主流程
-                print(f"记录操作日志失败: {str(log_error)}")
-                
+        # 记录操作日志
+        log_admin_operation(admin_id, "查询", "查询用户登录历史")
+        
         return {
             "code": 200,
             "message": "获取登录历史记录成功",
@@ -104,22 +136,26 @@ async def get_login_history(
         }
     except Exception as e:
         # 记录错误日志
-        print(f"获取登录历史记录失败: {str(e)}")
+        logger.error(f"获取登录历史记录失败: {str(e)}")
+        logger.error(f"错误详情: {traceback.format_exc()}")
         # 返回错误响应
         raise HTTPException(status_code=500, detail=f"获取登录历史记录失败: {str(e)}")
 
 # 获取指定用户的登录历史记录
 @router.get("/admin/users/{user_id}/login-history", tags=["用户管理"])
 async def get_user_login_history(
-    user_id: int,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    user_id: int = None,
     page: int = Query(1, description="页码"),
-    page_size: int = Query(10, description="每页数量"),
-    admin_id: Optional[int] = Query(None, description="管理员ID")
+    page_size: int = Query(10, description="每页数量")
 ):
     """
     获取指定用户的登录历史记录
     """
     try:
+        # 获取管理员ID
+        admin_id = await get_current_admin(credentials)
+        
         # 验证用户是否存在
         user_check = execute_query(
             """SELECT * FROM users WHERE user_id = %s""", 
@@ -166,18 +202,9 @@ async def get_user_login_history(
             record['login_time'] = record['login_time'].strftime("%Y-%m-%d %H:%M:%S") if record['login_time'] else ""
             record['expire_at'] = record['expire_at'].strftime("%Y-%m-%d %H:%M:%S") if record['expire_at'] else ""
         
-        # 如果提供了管理员ID，记录管理员操作
-        if admin_id:
-            try:
-                execute_query(
-                    """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
-                       VALUES (%s, %s, %s, NOW())""", 
-                    (admin_id, "查询", f"管理员{admin_id}查询用户{user_id}的登录历史")
-                )
-            except Exception as log_error:
-                # 记录日志错误，但不影响主流程
-                print(f"记录操作日志失败: {str(log_error)}")
-                
+        # 记录操作日志
+        log_admin_operation(admin_id, "查询", f"查询用户{user_id}的登录历史")
+        
         return {
             "code": 200,
             "message": "获取用户登录历史记录成功",
@@ -188,6 +215,7 @@ async def get_user_login_history(
         }
     except Exception as e:
         # 记录错误日志
-        print(f"获取用户登录历史记录失败: {str(e)}")
+        logger.error(f"获取用户登录历史记录失败: {str(e)}")
+        logger.error(f"错误详情: {traceback.format_exc()}")
         # 返回错误响应
         raise HTTPException(status_code=500, detail=f"获取用户登录历史记录失败: {str(e)}")

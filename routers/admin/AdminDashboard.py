@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from database import execute_query, execute_update
 from datetime import datetime, timedelta
@@ -7,15 +8,55 @@ from routers.user.login import get_current_admin
 import os
 from pathlib import Path
 
+# 初始化安全认证
+security = HTTPBearer()
+
+# 从请求中提取管理员ID的辅助函数
+async def get_admin_id_from_request(request: Request):
+    """
+    从请求中的Authorization头部获取管理员ID
+    如果无法获取到有效的管理员ID，返回None
+    """
+    try:
+        # 从Authorization头获取token
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return None
+        
+        token = auth_header.split(' ')[1]
+        
+        # 查询token对应的管理员ID
+        token_result = execute_query(
+            """SELECT admin_id 
+               FROM admin_tokens 
+               WHERE token = %s AND is_valid = 1 AND expire_at > NOW()""",
+            (token,)
+        )
+        
+        if not token_result or len(token_result) == 0:
+            return None
+        
+        return token_result[0]['admin_id']
+    except Exception as e:
+        print(f"从请求中获取管理员ID失败: {str(e)}")
+        return None
+
 # 初始化 APIRouter 实例，用于定义路由
 router = APIRouter()
 
 @router.get("/admin/dashboard/stats", tags=["仪表盘"])
-async def get_dashboard_stats(admin_id: Optional[int] = Query(None, description="管理员ID")):
+async def get_dashboard_stats(request: Request):
     """
     获取仪表盘统计数据
     """
     try:
+        # 从token中获取管理员ID
+        try:
+            admin_id = await get_admin_id_from_request(request)
+        except Exception as auth_error:
+            print(f"获取管理员ID失败: {str(auth_error)}")
+            admin_id = None
+        
         # 用户统计
         try:
             user_stats = execute_query(
@@ -193,13 +234,20 @@ async def get_dashboard_stats(admin_id: Optional[int] = Query(None, description=
 
 @router.get("/admin/dashboard/user-activity", tags=["仪表盘"])
 async def get_user_activity_chart(
-    days: int = Query(7, description="天数，7或30"),
-    admin_id: Optional[int] = Query(None, description="管理员ID")
+    request: Request,
+    days: int = Query(7, description="天数，7或30")
 ):
     """
     获取用户活跃度趋势图表数据
     """
     try:
+        # 从token中获取管理员ID
+        try:
+            admin_id = await get_admin_id_from_request(request)
+        except Exception as auth_error:
+            print(f"获取管理员ID失败: {str(auth_error)}")
+            admin_id = None
+        
         # 验证参数
         if days not in [7, 30]:
             days = 7
@@ -277,13 +325,20 @@ async def get_user_activity_chart(
 
 @router.get("/admin/dashboard/conversation-trend", tags=["仪表盘"])
 async def get_conversation_trend(
-    days: int = Query(7, description="天数，7或30"),
-    admin_id: Optional[int] = Query(None, description="管理员ID")
+    request: Request,
+    days: int = Query(7, description="天数，7或30")
 ):
     """
     获取对话数量趋势图表数据
     """
     try:
+        # 从token中获取管理员ID
+        try:
+            admin_id = await get_admin_id_from_request(request)
+        except Exception as auth_error:
+            print(f"获取管理员ID失败: {str(auth_error)}")
+            admin_id = None
+        
         # 验证参数
         if days not in [7, 30]:
             days = 7
@@ -361,13 +416,20 @@ async def get_conversation_trend(
 
 @router.get("/admin/dashboard/feedback-rating", tags=["仪表盘"])
 async def get_feedback_rating_trend(
-    days: int = Query(7, description="天数，7或30"),
-    admin_id: Optional[int] = Query(None, description="管理员ID")
+    request: Request,
+    days: int = Query(7, description="天数，7或30")
 ):
     """
     获取反馈评分趋势图表数据
     """
     try:
+        # 从token中获取管理员ID
+        try:
+            admin_id = await get_admin_id_from_request(request)
+        except Exception as auth_error:
+            print(f"获取管理员ID失败: {str(auth_error)}")
+            admin_id = None
+        
         # 验证参数
         if days not in [7, 30]:
             days = 7
@@ -444,11 +506,18 @@ async def get_feedback_rating_trend(
         raise HTTPException(status_code=500, detail=f"获取反馈评分趋势数据失败: {str(e)}")
 
 @router.get("/admin/dashboard/recent-data", tags=["仪表盘"])
-async def get_dashboard_recent_data(admin_id: Optional[int] = Query(None, description="管理员ID")):
+async def get_dashboard_recent_data(request: Request):
     """
     获取仪表盘最近活动数据（最近对话、登录、反馈）
     """
     try:
+        # 从token中获取管理员ID
+        try:
+            admin_id = await get_admin_id_from_request(request)
+        except Exception as auth_error:
+            print(f"获取管理员ID失败: {str(auth_error)}")
+            admin_id = None
+            
         # 获取最近对话
         recent_conversations = execute_query(
             """SELECT 
@@ -456,9 +525,12 @@ async def get_dashboard_recent_data(admin_id: Optional[int] = Query(None, descri
                 cs.title, 
                 cs.user_id, 
                 cs.created_at,
-                (SELECT COUNT(*) FROM chat_messages WHERE session_id = cs.id) as message_count
+                (SELECT COUNT(*) FROM chat_messages WHERE session_id = cs.id) as message_count,
+                u.mobile
                FROM 
                 chat_sessions cs
+               JOIN
+                users u ON cs.user_id = u.user_id
                ORDER BY 
                 cs.created_at DESC
                LIMIT 5""",
@@ -470,9 +542,12 @@ async def get_dashboard_recent_data(admin_id: Optional[int] = Query(None, descri
             """SELECT 
                 ut.user_id, 
                 ut.ip_address, 
-                ut.created_at as login_time
+                ut.created_at as login_time,
+                u.mobile
                FROM 
                 user_tokens ut
+               JOIN
+                users u ON ut.user_id = u.user_id
                WHERE
                 ut.is_valid = 1
                ORDER BY 
@@ -585,11 +660,18 @@ async def get_dashboard_recent_data(admin_id: Optional[int] = Query(None, descri
         raise HTTPException(status_code=500, detail=f"获取最近活动数据失败: {str(e)}")
 
 @router.get("/admin/dashboard/system-info", tags=["仪表盘"])
-async def get_dashboard_system_info(admin_id: Optional[int] = Query(None, description="管理员ID")):
+async def get_dashboard_system_info(request: Request):
     """
     获取仪表盘系统信息（系统参数、操作日志、系统版本）
     """
     try:
+        # 从token中获取管理员ID
+        try:
+            admin_id = await get_admin_id_from_request(request)
+        except Exception as auth_error:
+            print(f"获取管理员ID失败: {str(auth_error)}")
+            admin_id = None
+        
         # 获取系统参数
         system_params = execute_query(
             """SELECT 

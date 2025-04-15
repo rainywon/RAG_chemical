@@ -1,5 +1,5 @@
 # 引入 FastAPI 中的 APIRouter 和 HTTPException 模块，用于创建路由和处理异常
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 # 引入 Pydantic 中的 BaseModel 类，用于定义请求体的数据结构和验证
 from pydantic import BaseModel, Field
 # 从数据库模块导入 execute_query 和 execute_update 函数，用于执行查询和更新操作
@@ -12,8 +12,10 @@ from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 # 引入 json 模块处理 JSON 数据
 import json
-# 引入用户认证依赖函数
-from routers.user.login import get_current_user
+import logging
+
+# 初始化日志记录器
+logger = logging.getLogger(__name__)
 
 # 初始化 APIRouter 实例，用于定义路由
 router = APIRouter()
@@ -21,7 +23,6 @@ router = APIRouter()
 # 定义请求和响应模型
 class ChatSessionCreate(BaseModel):
     """创建聊天会话的请求模型"""
-    user_id: str
     title: Optional[str] = None
 
 class ChatMessageCreate(BaseModel):
@@ -46,47 +47,80 @@ class ChatSessionUpdate(BaseModel):
     """更新聊天会话的请求模型"""
     title: Optional[str] = None
 
+# 从请求中获取token
+async def get_token_from_request(request: Request) -> str:
+    """
+    从Authorization头中提取token
+    """
+    try:
+        auth_header = request.headers.get('Authorization')
+        
+        if not auth_header or not auth_header.startswith('Bearer '):
+            raise HTTPException(status_code=401, detail="无效的认证信息")
+        
+        token = auth_header.split(' ')[1]
+        
+        # 验证token是否有效（admin_tokens或user_tokens中存在且有效）
+        admin_result = execute_query(
+            "SELECT admin_id FROM admin_tokens WHERE token = %s AND is_valid = 1 AND expire_at > NOW()",
+            (token,)
+        )
+        
+        if admin_result:
+            return token
+        
+        user_result = execute_query(
+            "SELECT user_id FROM user_tokens WHERE token = %s AND is_valid = 1 AND expire_at > NOW()",
+            (token,)
+        )
+        
+        if user_result:
+            return token
+        
+        raise HTTPException(status_code=401, detail="无效的token")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"认证失败: {str(e)}")
+
 # API 路由
 
 @router.post("/chat/sessions", tags=["聊天历史"])
-async def create_chat_session(session: ChatSessionCreate):
+async def create_chat_session(request: Request, session: ChatSessionCreate):
     """
     创建新的聊天会话。
     """
     try:
-        # 生成唯一的会话ID
+        token = await get_token_from_request(request)
         session_id = str(uuid.uuid4())
-        
-        # 如果没有提供标题，则使用默认标题
         title = session.title or f"对话 {datetime.now().strftime('%H:%M:%S')}"
         
-        # 在数据库中创建会话
         execute_update(
-            """INSERT INTO chat_sessions (id, user_id, title, created_at) 
+            """INSERT INTO chat_sessions (id, token, title, created_at) 
                VALUES (%s, %s, %s, NOW())""", 
-            (session_id, session.user_id, title)
+            (session_id, token, title)
         )
         
         return {"id": session_id, "title": title}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"创建会话失败: {str(e)}")
 
-@router.get("/chat/sessions/{user_id}", tags=["聊天历史"])
-async def get_user_chat_sessions(user_id: str):
+@router.get("/chat/sessions", tags=["聊天历史"])
+async def get_user_chat_sessions(request: Request):
     """
     获取用户的所有聊天会话。
     """
     try:
-        # 查询用户的所有会话
+        token = await get_token_from_request(request)
+        
         sessions = execute_query(
             """SELECT id, title, created_at, updated_at 
                FROM chat_sessions 
-               WHERE user_id = %s 
+               WHERE token = %s 
                ORDER BY updated_at DESC""", 
-            (user_id,)
+            (token,)
         )
         
-        # 转换datetime对象为字符串，以便JSON序列化
         for session in sessions:
             session['created_at'] = session['created_at'].isoformat() if session['created_at'] else None
             session['updated_at'] = session['updated_at'].isoformat() if session['updated_at'] else None
@@ -96,12 +130,21 @@ async def get_user_chat_sessions(user_id: str):
         raise HTTPException(status_code=500, detail=f"获取会话列表失败: {str(e)}")
 
 @router.get("/chat/sessions/{session_id}/messages", tags=["聊天历史"])
-async def get_chat_session_messages(session_id: str):
+async def get_chat_session_messages(request: Request, session_id: str):
     """
     获取特定聊天会话的所有消息。
     """
     try:
-        # 查询会话的所有消息
+        token = await get_token_from_request(request)
+        
+        session_check = execute_query(
+            """SELECT id FROM chat_sessions WHERE id = %s AND token = %s""", 
+            (session_id, token)
+        )
+        
+        if not session_check:
+            raise HTTPException(status_code=403, detail="无权访问该会话")
+        
         messages = execute_query(
             """SELECT id, message_type, content, parent_id, paired_ai_id, 
                       message_references, question, is_loading, created_at
@@ -111,19 +154,14 @@ async def get_chat_session_messages(session_id: str):
             (session_id,)
         )
         
-        # 转换datetime对象为字符串，以便JSON序列化
         for message in messages:
             message['created_at'] = message['created_at'].isoformat() if message['created_at'] else None
-            # 确保布尔值正确转换
             message['is_loading'] = bool(message['is_loading'])
             
-            # 处理 message_references 字段
-            # 如果已经是字符串，尝试解析为 JSON 对象
             if isinstance(message['message_references'], str):
                 try:
                     message['message_references'] = json.loads(message['message_references'])
                 except json.JSONDecodeError:
-                    # 如果无法解析为 JSON，保持原样
                     pass
         
         return {"messages": messages}
@@ -131,28 +169,27 @@ async def get_chat_session_messages(session_id: str):
         raise HTTPException(status_code=500, detail=f"获取消息列表失败: {str(e)}")
 
 @router.post("/chat/messages", tags=["聊天历史"])
-async def create_chat_message(message: ChatMessageCreate):
+async def create_chat_message(request: Request, message: ChatMessageCreate):
     """
     创建新的聊天消息。
     """
     try:
-
+        token = await get_token_from_request(request)
         
-        # 确保 message_references 是有效的 JSON 字符串
-        if message.message_references is None:
-            message_references = '{}'
-        else:
-            # 我们已经在模型中定义了它是字符串类型，所以直接使用
-            message_references = message.message_references
+        session_check = execute_query(
+            """SELECT id FROM chat_sessions WHERE id = %s AND token = %s""", 
+            (message.session_id, token)
+        )
+        
+        if not session_check:
+            raise HTTPException(status_code=403, detail="无权访问该会话")
             
-            # 验证它是有效的 JSON 字符串
-            try:
-                json.loads(message_references)
-            except json.JSONDecodeError:
-                # 如果不是有效的 JSON，使用空对象
-                message_references = '{}'
+        message_references = message.message_references or '{}'
+        try:
+            json.loads(message_references)
+        except json.JSONDecodeError:
+            message_references = '{}'
         
-        # 在数据库中创建消息
         execute_update(
             """INSERT INTO chat_messages 
                (id, session_id, message_type, content, parent_id, paired_ai_id, 
@@ -165,13 +202,12 @@ async def create_chat_message(message: ChatMessageCreate):
                 message.content,
                 message.parent_id, 
                 message.paired_ai_id,
-                message_references,  # 已经是 JSON 字符串
+                message_references,
                 message.question,
                 message.is_loading
             )
         )
         
-        # 更新会话的更新时间
         execute_update(
             """UPDATE chat_sessions SET updated_at = NOW() WHERE id = %s""", 
             (message.session_id,)
@@ -182,12 +218,31 @@ async def create_chat_message(message: ChatMessageCreate):
         raise HTTPException(status_code=500, detail=f"创建消息失败: {str(e)}")
 
 @router.put("/chat/messages/{message_id}", tags=["聊天历史"])
-async def update_chat_message(message_id: str, message: ChatMessageUpdate):
+async def update_chat_message(request: Request, message_id: str, message: ChatMessageUpdate):
     """
     更新现有的聊天消息。
     """
     try:
-        # 构建更新SQL语句
+        token = await get_token_from_request(request)
+        
+        message_info = execute_query(
+            """SELECT session_id FROM chat_messages WHERE id = %s""",
+            (message_id,)
+        )
+        
+        if not message_info:
+            raise HTTPException(status_code=404, detail="消息不存在")
+            
+        session_id = message_info[0]['session_id']
+        
+        session_check = execute_query(
+            """SELECT id FROM chat_sessions WHERE id = %s AND token = %s""", 
+            (session_id, token)
+        )
+        
+        if not session_check:
+            raise HTTPException(status_code=403, detail="无权修改该消息")
+        
         update_fields = []
         params = []
         
@@ -197,15 +252,11 @@ async def update_chat_message(message_id: str, message: ChatMessageUpdate):
             
         if message.message_references is not None:
             update_fields.append("message_references = %s")
-            
-            # 验证 message_references 是有效的 JSON 字符串
             try:
                 json.loads(message.message_references)
                 message_references = message.message_references
             except json.JSONDecodeError:
-                # 如果不是有效的 JSON，使用空对象
                 message_references = '{}'
-                
             params.append(message_references)
             
         if message.is_loading is not None:
@@ -215,7 +266,6 @@ async def update_chat_message(message_id: str, message: ChatMessageUpdate):
         if not update_fields:
             return {"message": "Nothing to update"}
         
-        # 执行更新操作
         params.append(message_id)
         
         execute_update(
@@ -230,11 +280,21 @@ async def update_chat_message(message_id: str, message: ChatMessageUpdate):
         raise HTTPException(status_code=500, detail=f"更新消息失败: {str(e)}")
 
 @router.put("/chat/sessions/{session_id}", tags=["聊天历史"])
-async def update_chat_session(session_id: str, session: ChatSessionUpdate):
+async def update_chat_session(request: Request, session_id: str, session: ChatSessionUpdate):
     """
     更新聊天会话信息，例如标题。
     """
     try:
+        token = await get_token_from_request(request)
+        
+        session_check = execute_query(
+            """SELECT id FROM chat_sessions WHERE id = %s AND token = %s""", 
+            (session_id, token)
+        )
+        
+        if not session_check:
+            raise HTTPException(status_code=403, detail="无权修改该会话")
+            
         if session.title:
             execute_update(
                 """UPDATE chat_sessions SET title = %s, updated_at = NOW() WHERE id = %s""", 
@@ -246,15 +306,24 @@ async def update_chat_session(session_id: str, session: ChatSessionUpdate):
         raise HTTPException(status_code=500, detail=f"更新会话失败: {str(e)}")
 
 @router.delete("/chat/sessions/{session_id}", tags=["聊天历史"])
-async def delete_chat_session(session_id: str):
+async def delete_chat_session(request: Request, session_id: str):
     """
     删除聊天会话及其所有消息。
     """
     try:
-        # 删除会话及其消息（依赖外键约束自动删除消息）
+        token = await get_token_from_request(request)
+        
+        session_check = execute_query(
+            """SELECT id FROM chat_sessions WHERE id = %s AND token = %s""", 
+            (session_id, token)
+        )
+        
+        if not session_check:
+            raise HTTPException(status_code=403, detail="无权删除该会话")
+            
         result = execute_update(
-            """DELETE FROM chat_sessions WHERE id = %s""", 
-            (session_id,)
+            """DELETE FROM chat_sessions WHERE id = %s AND token = %s""", 
+            (session_id, token)
         )
         
         if result == 0:
@@ -264,20 +333,79 @@ async def delete_chat_session(session_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"删除会话失败: {str(e)}")
+        # 记录错误
+        logger.error(f"删除会话 {session_id} 失败: {str(e)}")
+        return {"code": 500, "message": f"删除会话失败: {str(e)}"}
 
-@router.delete("/chat/sessions/user/{user_id}", tags=["聊天历史"])
-async def delete_all_user_chat_sessions(user_id: str):
+@router.delete("/chat/sessions", tags=["聊天历史"])
+async def delete_all_user_chat_sessions(request: Request):
     """
     删除用户的所有聊天会话及其消息。
     """
     try:
-        # 删除用户的所有会话（依赖外键约束自动删除消息）
-        result = execute_update(
-            """DELETE FROM chat_sessions WHERE user_id = %s""", 
+        token = await get_token_from_request(request)
+        
+        # 验证token并获取用户ID
+        user_result = execute_query(
+            "SELECT user_id FROM user_tokens WHERE token = %s AND is_valid = 1 AND expire_at > NOW()",
+            (token,)
+        )
+        
+        if not user_result:
+            raise HTTPException(status_code=401, detail="无效的token")
+        
+        user_id = user_result[0]['user_id']
+        
+        # 获取用户的所有有效token
+        user_tokens = execute_query(
+            """SELECT token FROM user_tokens WHERE user_id = %s AND is_valid = 1""",
             (user_id,)
         )
-            
-        return {"message": f"Deleted {result} sessions successfully"}
+        
+        if not user_tokens:
+            return {"message": "没有找到可删除的会话"}
+        
+        token_list = [t['token'] for t in user_tokens]
+        
+        # 使用JOIN查询获取所有相关会话
+        sessions = execute_query(
+            """
+            SELECT DISTINCT cs.id 
+            FROM chat_sessions cs
+            JOIN user_tokens ut ON cs.token = ut.token
+            WHERE ut.user_id = %s AND ut.is_valid = 1
+            """,
+            (user_id,)
+        )
+        
+        if not sessions:
+            return {"message": "没有找到可删除的会话"}
+        
+        session_ids = [s['id'] for s in sessions]
+        delete_count = 0
+        
+        for session_id in session_ids:
+            try:
+                # 先删除消息
+                execute_update(
+                    """DELETE FROM chat_messages WHERE session_id = %s""", 
+                    (session_id,)
+                )
+                
+                # 再删除会话
+                session_result = execute_update(
+                    """DELETE FROM chat_sessions WHERE id = %s""", 
+                    (session_id,)
+                )
+                
+                if session_result > 0:
+                    delete_count += 1
+            except Exception as delete_error:
+                # 记录错误
+                logger.error(f"删除会话 {session_id} 失败: {str(delete_error)}")
+        
+        return {"message": f"已成功删除 {delete_count} 个会话"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"删除会话失败: {str(e)}")

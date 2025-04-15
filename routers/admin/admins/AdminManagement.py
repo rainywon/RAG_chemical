@@ -12,9 +12,14 @@ import hashlib
 from datetime import datetime
 from database import execute_query, execute_update
 from routers.user.login import get_current_admin
+import logging
+import json
 
 # 初始化 APIRouter 实例
 router = APIRouter()
+
+# 初始化日志记录器
+logger = logging.getLogger(__name__)
 
 # 请求模型
 class AdminCreate(BaseModel):
@@ -155,17 +160,19 @@ async def get_admins(
             admin['created_at'] = admin['created_at'].strftime("%Y-%m-%d %H:%M:%S") if admin['created_at'] else ""
             admin['updated_at'] = admin['updated_at'].strftime("%Y-%m-%d %H:%M:%S") if admin['updated_at'] else ""
         
-        # 记录操作日志 (如果提供了管理员ID)
-        if admin_id:
-            try:
-                execute_update(
-                    """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
-                       VALUES (%s, %s, %s, NOW())""", 
-                    (admin_id, "查询", f"管理员{admin_id}查询管理员列表")
-                )
-            except Exception as log_error:
-                # 仅记录日志错误，不影响主流程
-                print(f"记录操作日志失败: {str(log_error)}")
+        # 记录操作日志
+        try:
+            log_query = """
+                INSERT INTO admin_logs (log_type, operation, admin_id, details, created_at) 
+                VALUES (%s, %s, %s, %s, %s)
+            """
+            execute_update(log_query, (
+                'ADMIN_MANAGEMENT', '查询管理员列表', admin_id, f'查询了管理员列表，过滤条件: {status}', datetime.now()
+            ))
+        except Exception as log_error:
+            # 记录错误但不影响主要流程
+            # print(f"记录操作日志失败: {str(log_error)}")
+            logger.error(f"记录操作日志失败: {str(log_error)}")
         
         return {
             "code": 200,
@@ -179,7 +186,8 @@ async def get_admins(
         }
     except Exception as e:
         # 记录错误日志
-        print(f"获取管理员列表失败: {str(e)}")
+        # print(f"获取管理员列表失败: {str(e)}")
+        logger.error(f"获取管理员列表失败: {str(e)}")
         # 返回错误响应
         raise HTTPException(status_code=500, detail=f"获取管理员列表失败: {str(e)}")
 
@@ -231,7 +239,8 @@ async def create_admin(admin_data: AdminCreate, admin_id: Optional[int] = Query(
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程
-                print(f"记录操作日志失败: {str(log_error)}")
+                # print(f"记录操作日志失败: {str(log_error)}")
+                logger.error(f"记录操作日志失败: {str(log_error)}")
         
         return {
             "code": 200,
@@ -242,7 +251,8 @@ async def create_admin(admin_data: AdminCreate, admin_id: Optional[int] = Query(
         }
     except Exception as e:
         # 记录错误日志
-        print(f"添加管理员失败: {str(e)}")
+        # print(f"添加管理员失败: {str(e)}")
+        logger.error(f"添加管理员失败: {str(e)}")
         # 返回错误响应
         raise HTTPException(status_code=500, detail=f"添加管理员失败: {str(e)}")
 
@@ -307,7 +317,8 @@ async def update_admin(
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程
-                print(f"记录操作日志失败: {str(log_error)}")
+                # print(f"记录操作日志失败: {str(log_error)}")
+                logger.error(f"记录操作日志失败: {str(log_error)}")
         
         return {
             "code": 200,
@@ -315,7 +326,8 @@ async def update_admin(
         }
     except Exception as e:
         # 记录错误日志
-        print(f"更新管理员信息失败: {str(e)}")
+        # print(f"更新管理员信息失败: {str(e)}")
+        logger.error(f"更新管理员信息失败: {str(e)}")
         # 返回错误响应
         raise HTTPException(status_code=500, detail=f"更新管理员信息失败: {str(e)}")
 
@@ -363,7 +375,8 @@ async def update_admin_status(status_data: AdminStatusUpdate):
                 )
             except Exception as log_error:
                 # 仅记录日志错误，不影响主流程
-                print(f"记录操作日志失败: {str(log_error)}")
+                # print(f"记录操作日志失败: {str(log_error)}")
+                logger.error(f"记录操作日志失败: {str(log_error)}")
         
         return {
             "code": 200,
@@ -371,6 +384,7 @@ async def update_admin_status(status_data: AdminStatusUpdate):
         }
     except Exception as e:
         # 记录错误日志
-        print(f"修改管理员状态失败: {str(e)}")
+        # print(f"修改管理员状态失败: {str(e)}")
+        logger.error(f"修改管理员状态失败: {str(e)}")
         # 返回错误响应
         raise HTTPException(status_code=500, detail=f"修改管理员状态失败: {str(e)}")

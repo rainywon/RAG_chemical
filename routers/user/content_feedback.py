@@ -3,9 +3,13 @@ from pydantic import BaseModel
 from database import execute_query, execute_update
 from typing import Optional
 from datetime import datetime
+import logging
 
 # 初始化 APIRouter 实例，用于定义路由
 router = APIRouter()
+
+# 初始化日志记录器
+logger = logging.getLogger(__name__)
 
 # 定义请求体的模型
 class FeedbackRequest(BaseModel):
@@ -91,8 +95,8 @@ async def log_operation(user_info: dict, operation_type: str, operation_desc: st
                 (user_info["id"], operation_type, f"{user_name}{operation_desc}", ip_address, user_agent)
             )
     except Exception as e:
-        # 记录错误但不中断主要流程
-        print(f"记录操作日志失败: {str(e)}")
+        # 记录日志但不影响主流程
+        logger.error(f"记录操作日志失败: {str(e)}")
 
 # 提交反馈的路由
 @router.post("/submit-content-feedback/")

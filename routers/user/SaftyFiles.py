@@ -8,12 +8,14 @@ from database import execute_query, execute_update
 from config import Config
 import jwt
 from jwt.exceptions import InvalidTokenError
+import logging
 
 router = APIRouter()
 security = HTTPBearer()
 
 # 获取配置实例
 config = Config()
+logger = logging.getLogger(__name__)
 
 # 定义文件信息模型
 class FileInfo(BaseModel):
@@ -114,7 +116,7 @@ async def log_operation(user_id: int, user_role: str, operation_type: str, opera
             )
     except Exception as e:
         # 记录错误但不中断主要流程
-        print(f"记录操作日志失败: {str(e)}")
+        logger.error(f"记录操作日志失败: {str(e)}")
 
 # 获取文件列表
 @router.get("/safety_files/", response_model=FileListResponse)
@@ -128,7 +130,7 @@ async def get_safety_files(
         user_id, user_role = await get_current_user(request)
         
         # 使用配置中的文件存储路径
-        base_path = config.safety_files_path
+        base_path = config.safety_document_path
         if not os.path.exists(base_path):
             raise HTTPException(status_code=500, detail="文件存储路径不存在")
         
@@ -148,7 +150,7 @@ async def get_safety_files(
                     }
                     all_files.append(file_info)
                 except Exception as e:
-                    print(f"处理文件 {file} 时出错: {str(e)}")
+                    logger.error(f"处理文件 {file} 时出错: {str(e)}")
                     continue
         
         # 根据搜索条件过滤文件
@@ -173,7 +175,7 @@ async def get_safety_files(
                 request
             )
         except Exception as e:
-            print(f"记录操作日志失败: {str(e)}")
+            logger.error(f"记录操作日志失败: {str(e)}")
         
         return {
             "code": 200,
@@ -184,7 +186,7 @@ async def get_safety_files(
             "total_pages": total_pages
         }
     except Exception as e:
-        print(f"获取文件列表失败: {str(e)}")
+        logger.error(f"获取文件列表失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # 下载文件
@@ -197,7 +199,7 @@ async def download_file(
         user_id, user_role = await get_current_user(request)
         
         # 使用配置中的文件存储路径
-        base_path = config.safety_files_path
+        base_path = config.safety_document_path
         
         # 获取所有文件
         all_files = []
@@ -221,7 +223,7 @@ async def download_file(
             user_id,
             user_role,
             "下载文件", 
-            f"用户{user_id}({user_role})下载了文件[{target_file['name']}]", 
+            f"下载了文件[{target_file['name']}]", 
             request
         )
         
@@ -233,4 +235,5 @@ async def download_file(
             media_type='application/octet-stream'
         )
     except Exception as e:
+        logger.error(f"下载文件失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -2,7 +2,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPBearer
 # 引入 Pydantic 中的 BaseModel 类，用于定义请求体的数据结构和验证
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, validator, Field
 # 从数据库模块导入 execute_query 和 execute_update 函数，用于执行查询和更新操作
 from database import execute_query, execute_update
 # 导入密码哈希处理模块
@@ -10,10 +10,14 @@ import hashlib
 # 导入用于生成Token的模块
 import uuid
 import datetime
+import logging
+import re
+
+# 初始化日志记录器
+logger = logging.getLogger(__name__)
 
 # 初始化 APIRouter 实例，用于定义路由
 router = APIRouter()
-
 
 # 定义请求体的模型，使用 Pydantic 的 BaseModel 来验证请求的数据
 class RegisterRequest(BaseModel):
@@ -106,6 +110,7 @@ async def register(request: RegisterRequest):
             raise Exception(f"注册过程中发生错误: {str(e)}")
 
     except Exception as e:
-        # 记录错误日志
-        print(f"注册错误: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) 
+        # 删除print语句
+        # print(f"注册错误: {str(e)}")
+        logger.error(f"注册错误: {str(e)}")
+        return {"code": 500, "message": "注册过程中发生错误，请稍后再试"} 
