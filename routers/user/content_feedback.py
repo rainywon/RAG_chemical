@@ -16,11 +16,11 @@ class FeedbackRequest(BaseModel):
 async def get_current_user(request: Request):
     try:
         # 从Authorization头获取token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith('Bearer '):
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="无效的认证信息")
         
-        token = auth_header.split(' ')[1]
+        token = auth_header.split(" ")[1]
         
         # 查询admin_tokens表
         admin_result = execute_query(
@@ -30,7 +30,7 @@ async def get_current_user(request: Request):
         
         if admin_result:
             return {
-                "id": admin_result[0]['admin_id'],
+                "id": admin_result[0]["admin_id"],
                 "role": "admin"
             }
         
@@ -42,7 +42,7 @@ async def get_current_user(request: Request):
         
         if user_result:
             return {
-                "id": user_result[0]['user_id'],
+                "id": user_result[0]["user_id"],
                 "role": "user"
             }
         
@@ -55,22 +55,22 @@ async def log_operation(user_info: dict, operation_type: str, operation_desc: st
     try:
         # 获取IP地址和用户代理
         ip_address = request.client.host if request else None
-        user_agent = request.headers.get('user-agent') if request else None
+        user_agent = request.headers.get("user-agent") if request else None
         
         # 根据用户角色获取用户信息
-        if user_info['role'] == 'admin':
+        if user_info["role"] == "admin":
             admin_result = execute_query(
                 "SELECT full_name FROM admins WHERE admin_id = %s",
-                (user_info['id'],)
+                (user_info["id"],)
             )
             if admin_result:
-                user_name = admin_result[0]['full_name']
+                user_name = admin_result[0]["full_name"]
             else:
                 return
         else:
             user_result = execute_query(
                 "SELECT mobile FROM users WHERE user_id = %s",
-                (user_info['id'],)
+                (user_info["id"],)
             )
             if user_result:
                 user_name = f"用户{user_result[0]['mobile']}"
@@ -78,17 +78,17 @@ async def log_operation(user_info: dict, operation_type: str, operation_desc: st
                 return
         
         # 创建操作日志记录
-        if user_info['role'] == 'admin':
+        if user_info["role"] == "admin":
             execute_update(
                 """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, ip_address, user_agent, created_at) 
                    VALUES (%s, %s, %s, %s, %s, NOW())""",
-                (user_info['id'], operation_type, f"{user_name}{operation_desc}", ip_address, user_agent)
+                (user_info["id"], operation_type, f"{user_name}{operation_desc}", ip_address, user_agent)
             )
         else:
             execute_update(
                 """INSERT INTO operation_logs (user_id, operation_type, operation_desc, ip_address, user_agent, created_at) 
                    VALUES (%s, %s, %s, %s, %s, NOW())""",
-                (user_info['id'], operation_type, f"{user_name}{operation_desc}", ip_address, user_agent)
+                (user_info["id"], operation_type, f"{user_name}{operation_desc}", ip_address, user_agent)
             )
     except Exception as e:
         # 记录错误但不中断主要流程
@@ -113,7 +113,7 @@ async def submit_feedback(
         # 插入反馈数据到数据库中
         query = """INSERT INTO user_feedback (user_id, feedback_type, feedback_content, created_at) 
                    VALUES (%s, %s, %s, NOW())"""
-        params = (current_user['id'], feedback.feedback_type, feedback.feedback_content)
+        params = (current_user["id"], feedback.feedback_type, feedback.feedback_content)
         execute_update(query, params)
 
         # 返回成功的响应

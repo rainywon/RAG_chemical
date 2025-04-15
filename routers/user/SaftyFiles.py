@@ -8,10 +8,6 @@ from database import execute_query, execute_update
 from config import Config
 import jwt
 from jwt.exceptions import InvalidTokenError
-import logging
-
-# 配置日志
-logger = logging.getLogger(__name__)
 
 router = APIRouter()
 security = HTTPBearer()
@@ -72,7 +68,6 @@ async def get_current_user(request: Request) -> Tuple[int, str]:
         # 如果两个表都查不到，说明token无效
         raise HTTPException(status_code=401, detail="无效的token")
     except Exception as e:
-        logger.error(f"认证失败: {str(e)}")
         raise HTTPException(status_code=401, detail=str(e))
 
 # 记录操作日志
@@ -119,7 +114,7 @@ async def log_operation(user_id: int, user_role: str, operation_type: str, opera
             )
     except Exception as e:
         # 记录错误但不中断主要流程
-        logger.error(f"记录操作日志失败: {str(e)}")
+        print(f"记录操作日志失败: {str(e)}")
 
 # 获取文件列表
 @router.get("/safety_files/", response_model=FileListResponse)
@@ -153,7 +148,7 @@ async def get_safety_files(
                     }
                     all_files.append(file_info)
                 except Exception as e:
-                    logger.error(f"处理文件 {file} 时出错: {str(e)}")
+                    print(f"处理文件 {file} 时出错: {str(e)}")
                     continue
         
         # 根据搜索条件过滤文件
@@ -178,7 +173,7 @@ async def get_safety_files(
                 request
             )
         except Exception as e:
-            logger.error(f"记录操作日志失败: {str(e)}")
+            print(f"记录操作日志失败: {str(e)}")
         
         return {
             "code": 200,
@@ -189,7 +184,7 @@ async def get_safety_files(
             "total_pages": total_pages
         }
     except Exception as e:
-        logger.error(f"获取文件列表失败: {str(e)}")
+        print(f"获取文件列表失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # 下载文件
@@ -226,7 +221,7 @@ async def download_file(
             user_id,
             user_role,
             "下载文件", 
-            f"下载了文件[{target_file['name']}]", 
+            f"用户{user_id}({user_role})下载了文件[{target_file['name']}]", 
             request
         )
         
@@ -238,5 +233,4 @@ async def download_file(
             media_type='application/octet-stream'
         )
     except Exception as e:
-        logger.error(f"下载文件失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

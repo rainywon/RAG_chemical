@@ -1,5 +1,5 @@
 # 引入 FastAPI 中的 APIRouter 和 HTTPException 模块，用于创建路由和处理异常
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request, Depends
 # 引入 Pydantic 中的 BaseModel 类，用于定义请求体的数据结构和验证
 from pydantic import BaseModel
 # 从数据库模块导入 execute_query 和 execute_update 函数，用于执行查询和更新操作
@@ -8,32 +8,106 @@ from database import execute_query, execute_update
 from datetime import datetime, timedelta
 # 引入 typing 模块中的 Optional 和 List 类型
 from typing import Optional, List
+# 引入日志模块
+import logging
+import traceback
 
 # 初始化 APIRouter 实例，用于定义路由
 router = APIRouter()
+
+# 配置日志
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # 定义请求体的模型，用于更新反馈处理状态
 class UpdateFeedbackStatusRequest(BaseModel):
     status: str  # 反馈状态：pending, processing, resolved, rejected
     admin_reply: Optional[str] = None  # 管理员回复内容
 
+# 获取当前管理员ID
+async def get_current_admin(request: Request):
+    try:
+        # 从Authorization头获取token
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            raise HTTPException(status_code=401, detail="无效的认证信息")
+        
+        token = auth_header.split(' ')[1]
+        
+        # 查询admin_tokens表
+        admin_result = execute_query(
+            """SELECT admin_id FROM admin_tokens WHERE token = %s AND is_valid = 1 AND expire_at > NOW()""",
+            (token,)
+        )
+        
+        if not admin_result:
+            raise HTTPException(status_code=401, detail="无效的token或token已过期")
+        
+        admin_id = admin_result[0]['admin_id']
+        
+        # 验证管理员是否存在
+        admin_info = execute_query(
+            """SELECT admin_id, full_name FROM admins WHERE admin_id = %s""",
+            (admin_id,)
+        )
+        
+        if not admin_info:
+            raise HTTPException(status_code=401, detail="管理员不存在")
+        
+        return admin_id
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"管理员认证失败: {str(e)}")
+        logger.error(f"错误详情: {traceback.format_exc()}")
+        raise HTTPException(status_code=401, detail=f"管理员认证失败: {str(e)}")
+
+# 安全记录管理员操作
+def log_admin_operation(admin_id: int, operation_type: str, description: str):
+    if not admin_id:
+        return
+    
+    try:
+        # 获取管理员姓名
+        admin_result = execute_query(
+            """SELECT full_name FROM admins WHERE admin_id = %s""",
+            (admin_id,)
+        )
+        
+        admin_name = admin_result[0]['full_name'] if admin_result else f"管理员{admin_id}"
+        
+        # 在描述前添加管理员姓名
+        full_description = f"{admin_name}{description}"
+        
+        execute_update(
+            """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
+               VALUES (%s, %s, %s, NOW())""",
+            (admin_id, operation_type, full_description)
+        )
+    except Exception as e:
+        # 记录错误但不中断主要流程
+        logger.error(f"记录操作日志失败: {str(e)}")
+
 # 获取系统功能反馈列表接口
 @router.get("/admin/feedback/system", tags=["反馈管理"])
 async def get_system_feedback_list(
+    request: Request,
     page: int = Query(1, description="页码"),
     page_size: int = Query(10, description="每页数量"),
     feedback_type: Optional[str] = Query(None, description="反馈类型筛选"),
     status: Optional[str] = Query(None, description="处理状态筛选"),
     start_date: Optional[str] = Query(None, description="开始日期"),
     end_date: Optional[str] = Query(None, description="结束日期"),
-    keyword: Optional[str] = Query(None, description="关键词搜索"),
-    current_admin_id: Optional[int] = Query(None, description="当前管理员ID")
+    keyword: Optional[str] = Query(None, description="关键词搜索")
 ):
     """
     获取系统功能反馈列表，支持分页和筛选
     从user_feedback表获取数据
     """
     try:
+        # 获取管理员ID
+        admin_id = await get_current_admin(request)
+        
         # 计算偏移量
         offset = (page - 1) * page_size
         
@@ -87,17 +161,8 @@ async def get_system_feedback_list(
             feedback['created_at'] = feedback['created_at'].strftime("%Y-%m-%d %H:%M:%S") if feedback['created_at'] else None
             feedback['replied_at'] = feedback['replied_at'].strftime("%Y-%m-%d %H:%M:%S") if feedback['replied_at'] else None
         
-        # 记录操作日志 (如果提供了管理员ID)
-        if current_admin_id:
-            try:
-                execute_update(
-                    """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
-                       VALUES (%s, %s, %s, NOW())""", 
-                    (current_admin_id, "查询", f"管理员{current_admin_id}查询系统功能反馈列表")
-                )
-            except Exception as log_error:
-                # 仅记录日志错误，不影响主流程
-                print(f"记录操作日志失败: {str(log_error)}")
+        # 记录操作日志
+        log_admin_operation(admin_id, "查询", "查询系统功能反馈列表")
         
         return {
             "code": 200,
@@ -109,23 +174,27 @@ async def get_system_feedback_list(
         }
     except Exception as e:
         # 记录错误日志
-        print(f"获取系统功能反馈列表失败: {str(e)}")
+        logger.error(f"获取系统功能反馈列表失败: {str(e)}")
+        logger.error(f"错误详情: {traceback.format_exc()}")
         # 返回错误响应
         raise HTTPException(status_code=500, detail=f"获取系统功能反馈列表失败: {str(e)}")
 
 # 获取系统功能反馈状态统计接口
 @router.get("/admin/feedback/system/stats", tags=["反馈管理"])
 async def get_system_feedback_stats(
+    request: Request,
     feedback_type: Optional[str] = Query(None, description="反馈类型筛选"),
     start_date: Optional[str] = Query(None, description="开始日期"),
     end_date: Optional[str] = Query(None, description="结束日期"),
-    keyword: Optional[str] = Query(None, description="关键词搜索"),
-    current_admin_id: Optional[int] = Query(None, description="当前管理员ID")
+    keyword: Optional[str] = Query(None, description="关键词搜索")
 ):
     """
     获取系统功能反馈状态统计
     """
     try:
+        # 获取管理员ID
+        admin_id = await get_current_admin(request)
+        
         # 构建基础查询SQL
         query = """
             SELECT 
@@ -169,17 +238,8 @@ async def get_system_feedback_stats(
             if status not in result:
                 result[status] = 0
         
-        # 记录操作日志 (如果提供了管理员ID)
-        if current_admin_id:
-            try:
-                execute_update(
-                    """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
-                       VALUES (%s, %s, %s, NOW())""", 
-                    (current_admin_id, "查询", f"管理员{current_admin_id}查询系统功能反馈统计")
-                )
-            except Exception as log_error:
-                # 仅记录日志错误，不影响主流程
-                print(f"记录操作日志失败: {str(log_error)}")
+        # 记录操作日志
+        log_admin_operation(admin_id, "查询", "查询系统功能反馈统计")
         
         return {
             "code": 200,
@@ -190,20 +250,24 @@ async def get_system_feedback_stats(
         }
     except Exception as e:
         # 记录错误日志
-        print(f"获取系统功能反馈状态统计失败: {str(e)}")
+        logger.error(f"获取系统功能反馈状态统计失败: {str(e)}")
+        logger.error(f"错误详情: {traceback.format_exc()}")
         # 返回错误响应
         raise HTTPException(status_code=500, detail=f"获取系统功能反馈状态统计失败: {str(e)}")
 
 # 获取系统功能反馈详情接口
 @router.get("/admin/feedback/system/{feedback_id}", tags=["反馈管理"])
 async def get_system_feedback_detail(
-    feedback_id: int,
-    current_admin_id: Optional[int] = Query(None, description="当前管理员ID")
+    request: Request,
+    feedback_id: int
 ):
     """
     获取系统功能反馈详情
     """
     try:
+        # 获取管理员ID
+        admin_id = await get_current_admin(request)
+        
         # 查询反馈详情
         feedback_detail = execute_query(
             """SELECT 
@@ -227,17 +291,8 @@ async def get_system_feedback_detail(
         feedback['created_at'] = feedback['created_at'].strftime("%Y-%m-%d %H:%M:%S") if feedback['created_at'] else None
         feedback['replied_at'] = feedback['replied_at'].strftime("%Y-%m-%d %H:%M:%S") if feedback['replied_at'] else None
         
-        # 记录操作日志 (如果提供了管理员ID)
-        if current_admin_id:
-            try:
-                execute_update(
-                    """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
-                       VALUES (%s, %s, %s, NOW())""", 
-                    (current_admin_id, "查询", f"管理员{current_admin_id}查看系统功能反馈{feedback_id}详情")
-                )
-            except Exception as log_error:
-                # 仅记录日志错误，不影响主流程
-                print(f"记录操作日志失败: {str(log_error)}")
+        # 记录操作日志
+        log_admin_operation(admin_id, "查询", f"查看系统功能反馈{feedback_id}详情")
         
         return {
             "code": 200,
@@ -246,21 +301,25 @@ async def get_system_feedback_detail(
         }
     except Exception as e:
         # 记录错误日志
-        print(f"获取反馈详情失败: {str(e)}")
+        logger.error(f"获取反馈详情失败: {str(e)}")
+        logger.error(f"错误详情: {traceback.format_exc()}")
         # 返回错误响应
         raise HTTPException(status_code=500, detail=f"获取反馈详情失败: {str(e)}")
 
 # 更新系统功能反馈状态接口
 @router.put("/admin/feedback/system/{feedback_id}", tags=["反馈管理"])
 async def update_system_feedback_status(
+    request: Request,
     feedback_id: int,
-    request: UpdateFeedbackStatusRequest,
-    current_admin_id: Optional[int] = Query(None, description="当前管理员ID")
+    req: UpdateFeedbackStatusRequest
 ):
     """
     更新系统功能反馈处理状态和回复
     """
     try:
+        # 获取管理员ID
+        admin_id = await get_current_admin(request)
+        
         # 验证反馈是否存在
         feedback_exists = execute_query(
             "SELECT feedback_id FROM user_feedback WHERE feedback_id = %s",
@@ -275,37 +334,28 @@ async def update_system_feedback_status(
         
         # 验证状态值是否有效
         valid_statuses = ['pending', 'processing', 'resolved', 'rejected']
-        if request.status not in valid_statuses:
+        if req.status not in valid_statuses:
             return {
                 "code": 400,
                 "message": f"无效的状态值，必须是以下之一: {', '.join(valid_statuses)}"
             }
         
         # 更新反馈状态和回复
-        if request.admin_reply:
+        if req.admin_reply:
             execute_update(
                 """UPDATE user_feedback 
                    SET status = %s, admin_reply = %s, replied_at = NOW() 
                    WHERE feedback_id = %s""",
-                (request.status, request.admin_reply, feedback_id)
+                (req.status, req.admin_reply, feedback_id)
             )
         else:
             execute_update(
                 "UPDATE user_feedback SET status = %s WHERE feedback_id = %s",
-                (request.status, feedback_id)
+                (req.status, feedback_id)
             )
         
-        # 记录操作日志 (如果提供了管理员ID)
-        if current_admin_id:
-            try:
-                execute_update(
-                    """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
-                       VALUES (%s, %s, %s, NOW())""", 
-                    (current_admin_id, "更新", f"管理员{current_admin_id}更新系统功能反馈{feedback_id}状态为{request.status}")
-                )
-            except Exception as log_error:
-                # 仅记录日志错误，不影响主流程
-                print(f"记录操作日志失败: {str(log_error)}")
+        # 记录操作日志
+        log_admin_operation(admin_id, "更新", f"更新系统功能反馈{feedback_id}状态为{req.status}")
         
         return {
             "code": 200,
@@ -313,6 +363,7 @@ async def update_system_feedback_status(
         }
     except Exception as e:
         # 记录错误日志
-        print(f"更新反馈状态失败: {str(e)}")
+        logger.error(f"更新反馈状态失败: {str(e)}")
+        logger.error(f"错误详情: {traceback.format_exc()}")
         # 返回错误响应
         raise HTTPException(status_code=500, detail=f"更新反馈状态失败: {str(e)}") 

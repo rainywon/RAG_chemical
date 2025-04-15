@@ -1,5 +1,5 @@
 # 引入 FastAPI 中的 APIRouter 和 HTTPException 模块，用于创建路由和处理异常
-from fastapi import APIRouter, HTTPException, Path, Query
+from fastapi import APIRouter, HTTPException, Path, Query, Request, Depends
 # 引入 Pydantic 中的 BaseModel 类，用于定义请求体的数据结构和验证
 from pydantic import BaseModel
 # 从数据库模块导入 execute_query 和 execute_update 函数，用于执行查询和更新操作
@@ -8,6 +8,7 @@ from database import execute_query, execute_update
 from typing import List, Dict, Any, Optional
 # 引入日志模块记录系统日志
 import logging
+import traceback
 
 # 初始化 APIRouter 实例，用于定义路由
 router = APIRouter()
@@ -20,7 +21,6 @@ logger = logging.getLogger(__name__)
 class SystemConfigUpdate(BaseModel):
     config_value: str
     description: Optional[str] = None
-    admin_id: int
 
 # 定义系统版本模型
 class SystemVersionCreate(BaseModel):
@@ -29,20 +29,89 @@ class SystemVersionCreate(BaseModel):
     release_date: str
     update_notes: Optional[str] = None
     is_current: bool = False
-    admin_id: int
 
 # 设置当前版本请求模型
 class SetCurrentVersionRequest(BaseModel):
-    admin_id: int
+    pass
+
+# 获取当前管理员ID
+async def get_current_admin(request: Request):
+    try:
+        # 从Authorization头获取token
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            raise HTTPException(status_code=401, detail="无效的认证信息")
+        
+        token = auth_header.split(' ')[1]
+        
+        # 查询admin_tokens表
+        admin_result = execute_query(
+            """SELECT admin_id FROM admin_tokens WHERE token = %s AND is_valid = 1 AND expire_at > NOW()""",
+            (token,)
+        )
+        
+        if not admin_result:
+            raise HTTPException(status_code=401, detail="无效的token或token已过期")
+        
+        admin_id = admin_result[0]['admin_id']
+        
+        # 验证管理员是否存在
+        admin_info = execute_query(
+            """SELECT admin_id, full_name FROM admins WHERE admin_id = %s""",
+            (admin_id,)
+        )
+        
+        if not admin_info:
+            raise HTTPException(status_code=401, detail="管理员不存在")
+        
+        return admin_id
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"管理员认证失败: {str(e)}")
+        logger.error(f"错误详情: {traceback.format_exc()}")
+        raise HTTPException(status_code=401, detail=f"管理员认证失败: {str(e)}")
+
+# 安全记录管理员操作
+def log_admin_operation(admin_id: int, operation_type: str, description: str):
+    if not admin_id:
+        return
+    
+    try:
+        # 获取管理员姓名
+        admin_result = execute_query(
+            """SELECT full_name FROM admins WHERE admin_id = %s""",
+            (admin_id,)
+        )
+        
+        admin_name = admin_result[0]['full_name'] if admin_result else f"管理员{admin_id}"
+        
+        # 在描述前添加管理员姓名
+        full_description = f"{admin_name}{description}"
+        
+        execute_update(
+            """INSERT INTO operation_logs (admin_id, operation_type, operation_desc, created_at) 
+               VALUES (%s, %s, %s, NOW())""",
+            (admin_id, operation_type, full_description)
+        )
+    except Exception as e:
+        # 记录错误但不中断主要流程
+        logger.error(f"记录操作日志失败: {str(e)}")
 
 # 获取所有系统配置
 @router.get("/admin/settings/system-configs", tags=["系统设置"])
-async def get_system_configs(admin_id: int = Query(...)):
+async def get_system_configs(request: Request):
     """
     获取所有系统配置参数
     """
     try:
+        # 获取管理员ID
+        admin_id = await get_current_admin(request)
+        
         configs = execute_query("SELECT * FROM system_configs ORDER BY config_id")
+        
+        # 记录操作日志
+        log_admin_operation(admin_id, "查询", "查询系统配置参数")
         
         return {
             "code": 200,
@@ -51,11 +120,13 @@ async def get_system_configs(admin_id: int = Query(...)):
         }
     except Exception as e:
         logger.error(f"获取系统配置失败: {str(e)}")
+        logger.error(f"错误详情: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"获取系统配置失败: {str(e)}")
 
 # 更新系统配置
 @router.put("/admin/settings/system-configs/{config_id}", tags=["系统设置"])
 async def update_system_config(
+    request: Request,
     config_id: int = Path(..., title="配置ID"),
     config_update: SystemConfigUpdate = None
 ):
@@ -63,6 +134,9 @@ async def update_system_config(
     更新指定ID的系统配置
     """
     try:
+        # 获取管理员ID
+        admin_id = await get_current_admin(request)
+        
         # 检查配置是否存在
         existing_config = execute_query(
             "SELECT * FROM system_configs WHERE config_id = %s",
@@ -95,11 +169,7 @@ async def update_system_config(
         )
         
         # 记录操作日志
-        admin_id = config_update.admin_id
-        execute_update(
-            "INSERT INTO operation_logs (admin_id, operation_type, operation_desc) VALUES (%s, %s, %s)",
-            (admin_id, "更新", f"管理员{admin_id}更新系统配置{config_id}")
-        )
+        log_admin_operation(admin_id, "更新", f"更新系统配置{config_id}")
         
         # 获取更新后的配置
         updated_config = execute_query(
@@ -116,18 +186,25 @@ async def update_system_config(
         raise
     except Exception as e:
         logger.error(f"更新系统配置失败: {str(e)}")
+        logger.error(f"错误详情: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"更新系统配置失败: {str(e)}")
 
 # 获取所有系统版本
 @router.get("/admin/settings/system-versions", tags=["系统设置"])
-async def get_system_versions(admin_id: int = Query(...)):
+async def get_system_versions(request: Request):
     """
     获取所有系统版本信息
     """
     try:
+        # 获取管理员ID
+        admin_id = await get_current_admin(request)
+        
         versions = execute_query(
             "SELECT * FROM system_versions ORDER BY version_id DESC"
         )
+        
+        # 记录操作日志
+        log_admin_operation(admin_id, "查询", "查询系统版本列表")
         
         return {
             "code": 200,
@@ -136,17 +213,22 @@ async def get_system_versions(admin_id: int = Query(...)):
         }
     except Exception as e:
         logger.error(f"获取系统版本失败: {str(e)}")
+        logger.error(f"错误详情: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"获取系统版本失败: {str(e)}")
 
 # 添加新系统版本
 @router.post("/admin/settings/system-versions", tags=["系统设置"])
 async def create_system_version(
+    request: Request,
     version: SystemVersionCreate
 ):
     """
     添加新的系统版本
     """
     try:
+        # 获取管理员ID
+        admin_id = await get_current_admin(request)
+        
         # 如果设置为当前版本，则将其他版本设置为非当前版本
         if version.is_current:
             execute_update(
@@ -171,11 +253,7 @@ async def create_system_version(
         )
         
         # 记录操作日志
-        admin_id = version.admin_id
-        execute_update(
-            "INSERT INTO operation_logs (admin_id, operation_type, operation_desc) VALUES (%s, %s, %s)",
-            (admin_id, "创建", f"管理员{admin_id}添加系统版本{version.version_number}")
-        )
+        log_admin_operation(admin_id, "创建", f"添加系统版本{version.version_number}")
         
         # 获取新添加的版本
         new_version = execute_query(
@@ -190,18 +268,22 @@ async def create_system_version(
         }
     except Exception as e:
         logger.error(f"添加系统版本失败: {str(e)}")
+        logger.error(f"错误详情: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"添加系统版本失败: {str(e)}")
 
 # 设置当前版本
 @router.put("/admin/settings/system-versions/{version_id}/set-current", tags=["系统设置"])
 async def set_current_version(
-    request: SetCurrentVersionRequest,
+    request: Request,
     version_id: int = Path(..., title="版本ID")
 ):
     """
     设置指定版本为当前版本
     """
     try:
+        # 获取管理员ID
+        admin_id = await get_current_admin(request)
+        
         # 检查版本是否存在
         existing_version = execute_query(
             "SELECT * FROM system_versions WHERE version_id = %s",
@@ -223,11 +305,7 @@ async def set_current_version(
         )
         
         # 记录操作日志
-        admin_id = request.admin_id
-        execute_update(
-            "INSERT INTO operation_logs (admin_id, operation_type, operation_desc) VALUES (%s, %s, %s)",
-            (admin_id, "更新", f"管理员{admin_id}将版本{existing_version[0]['version_number']}设为当前版本")
-        )
+        log_admin_operation(admin_id, "更新", f"将版本{existing_version[0]['version_number']}设为当前版本")
         
         # 获取更新后的版本
         updated_version = execute_query(
@@ -244,4 +322,5 @@ async def set_current_version(
         raise
     except Exception as e:
         logger.error(f"设置当前版本失败: {str(e)}")
+        logger.error(f"错误详情: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"设置当前版本失败: {str(e)}")
