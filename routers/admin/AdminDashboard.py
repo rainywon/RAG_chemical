@@ -120,21 +120,22 @@ async def get_dashboard_stats(request: Request):
         
         # 系统活跃度
         try:
-            activity_stats = execute_query(
+            # 获取系统活跃度数据
+            system_activity = execute_query(
                 """SELECT 
+                    (SELECT COUNT(DISTINCT mobile) FROM users) as total_users,
                     (SELECT COUNT(*) FROM chat_sessions) as total_sessions,
-                    (SELECT COUNT(DISTINCT user_id) FROM chat_sessions WHERE DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)) as active_users,
-                    (SELECT IFNULL(AVG(message_count), 0) FROM (
-                        SELECT session_id, COUNT(*) as message_count 
-                        FROM chat_messages 
-                        GROUP BY session_id
-                    ) as message_counts) as avg_messages_per_session
-                   FROM dual""",
+                    (SELECT COUNT(*) FROM chat_messages WHERE message_type = 'user') as total_questions,
+                    (SELECT COUNT(DISTINCT token) FROM chat_sessions WHERE DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)) as active_users,
+                    (SELECT COUNT(*) FROM content_feedbacks) as feedback_count,
+                    (SELECT COUNT(*) FROM content_feedbacks WHERE rating >= 4) as good_rating_count,
+                    (SELECT ROUND(COUNT(*) / (SELECT COUNT(*) FROM chat_sessions), 2) FROM chat_messages WHERE message_type = 'user') as avg_messages_per_session
+                   """,
                 ()
             )
         except Exception as e:
             print(f"获取系统活跃度失败: {str(e)}")
-            activity_stats = []
+            system_activity = []
         
         # 反馈统计
         try:
@@ -159,9 +160,11 @@ async def get_dashboard_stats(request: Request):
         safety_count = content_stats[0]['safety_count'] if content_stats and len(content_stats) > 0 and 'safety_count' in content_stats[0] else 0
         emergency_count = content_stats[0]['emergency_count'] if content_stats and len(content_stats) > 0 and 'emergency_count' in content_stats[0] else 0
         
-        total_sessions = activity_stats[0]['total_sessions'] if activity_stats and len(activity_stats) > 0 and 'total_sessions' in activity_stats[0] else 0
-        active_users = activity_stats[0]['active_users'] if activity_stats and len(activity_stats) > 0 and 'active_users' in activity_stats[0] else 0
-        avg_messages = activity_stats[0]['avg_messages_per_session'] if activity_stats and len(activity_stats) > 0 and 'avg_messages_per_session' in activity_stats[0] else 0
+        total_sessions = system_activity[0]['total_sessions'] if system_activity and len(system_activity) > 0 and 'total_sessions' in system_activity[0] else 0
+        active_users = system_activity[0]['active_users'] if system_activity and len(system_activity) > 0 and 'active_users' in system_activity[0] else 0
+        total_questions = system_activity[0]['total_questions'] if system_activity and len(system_activity) > 0 and 'total_questions' in system_activity[0] else 0
+        feedback_count = system_activity[0]['feedback_count'] if system_activity and len(system_activity) > 0 and 'feedback_count' in system_activity[0] else 0
+        good_rating_count = system_activity[0]['good_rating_count'] if system_activity and len(system_activity) > 0 and 'good_rating_count' in system_activity[0] else 0
         
         total_feedbacks = feedback_stats[0]['total_feedbacks'] if feedback_stats and len(feedback_stats) > 0 and 'total_feedbacks' in feedback_stats[0] else 0
         system_feedbacks = feedback_stats[0]['system_feedbacks'] if feedback_stats and len(feedback_stats) > 0 and 'system_feedbacks' in feedback_stats[0] else 0
@@ -210,10 +213,13 @@ async def get_dashboard_stats(request: Request):
                     "safety_count": safety_count,
                     "emergency_count": emergency_count
                 },
-                "activity_stats": {
+                "system_activity": {
                     "total_sessions": total_sessions,
                     "active_users": active_users,
-                    "avg_messages_per_session": float(avg_messages) if avg_messages else 0
+                    "total_questions": total_questions,
+                    "feedback_count": feedback_count,
+                    "good_rating_count": good_rating_count,
+                    "avg_messages_per_session": system_activity[0]['avg_messages_per_session'] if system_activity and len(system_activity) > 0 and 'avg_messages_per_session' in system_activity[0] else 0
                 },
                 "feedback_stats": {
                     "total_feedbacks": total_feedbacks,
@@ -257,7 +263,7 @@ async def get_user_activity_chart(
             activity_data = execute_query(
                 """SELECT 
                     DATE(created_at) as date,
-                    COUNT(DISTINCT user_id) as active_users
+                    COUNT(DISTINCT token) as active_users
                    FROM 
                     chat_sessions
                    WHERE 
@@ -523,14 +529,14 @@ async def get_dashboard_recent_data(request: Request):
             """SELECT 
                 cs.id, 
                 cs.title, 
-                cs.user_id, 
+                cs.token, 
                 cs.created_at,
                 (SELECT COUNT(*) FROM chat_messages WHERE session_id = cs.id) as message_count,
                 u.mobile
                FROM 
                 chat_sessions cs
-               JOIN
-                users u ON cs.user_id = u.user_id
+               LEFT JOIN
+                users u ON cs.token = u.mobile
                ORDER BY 
                 cs.created_at DESC
                LIMIT 5""",
@@ -546,7 +552,7 @@ async def get_dashboard_recent_data(request: Request):
                 u.mobile
                FROM 
                 user_tokens ut
-               JOIN
+               LEFT JOIN
                 users u ON ut.user_id = u.user_id
                WHERE
                 ut.is_valid = 1
@@ -555,6 +561,24 @@ async def get_dashboard_recent_data(request: Request):
                LIMIT 5""",
             ()
         )
+        
+        # 如果没有数据，使用管理员登录记录
+        if not recent_logins or len(recent_logins) == 0:
+            recent_logins = execute_query(
+                """SELECT 
+                    at.admin_id as user_id, 
+                    at.ip_address, 
+                    at.created_at as login_time,
+                    CONCAT('管理员', at.admin_id) as mobile
+                   FROM 
+                    admin_tokens at
+                   WHERE
+                    at.is_valid = 1
+                   ORDER BY 
+                    at.created_at DESC
+                   LIMIT 5""",
+                ()
+            )
         
         # 获取最新反馈 - 修复字符集冲突问题
         # 分别查询两个表并在应用层合并，而不是使用UNION

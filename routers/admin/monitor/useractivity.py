@@ -36,8 +36,9 @@ async def get_activity_stats():
                 SELECT DISTINCT user_id FROM user_tokens 
                 WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
                 UNION
-                SELECT DISTINCT cs.user_id 
+                SELECT DISTINCT u.user_id 
                 FROM chat_sessions cs
+                JOIN users u ON cs.token = u.mobile
                 JOIN chat_messages cm ON cs.id = cm.session_id
                 WHERE cm.message_type = 'user' 
                 AND cm.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
@@ -119,8 +120,9 @@ async def get_activity_trend(request: ActivityTrendRequest):
                         SELECT DISTINCT user_id FROM user_tokens 
                         WHERE DATE(created_at) = %s
                         UNION
-                        SELECT DISTINCT cs.user_id 
+                        SELECT DISTINCT u.user_id 
                         FROM chat_sessions cs
+                        JOIN users u ON cs.token = u.mobile
                         JOIN chat_messages cm ON cs.id = cm.session_id
                         WHERE cm.message_type = 'user' 
                         AND DATE(cm.created_at) = %s
@@ -156,8 +158,9 @@ async def get_activity_trend(request: ActivityTrendRequest):
                         SELECT DISTINCT user_id FROM user_tokens 
                         WHERE created_at >= %s AND created_at <= %s
                         UNION
-                        SELECT DISTINCT cs.user_id 
+                        SELECT DISTINCT u.user_id 
                         FROM chat_sessions cs
+                        JOIN users u ON cs.token = u.mobile
                         JOIN chat_messages cm ON cs.id = cm.session_id
                         WHERE cm.message_type = 'user' 
                         AND cm.created_at >= %s AND cm.created_at <= %s
@@ -201,8 +204,9 @@ async def get_activity_trend(request: ActivityTrendRequest):
                         SELECT DISTINCT user_id FROM user_tokens 
                         WHERE created_at >= %s AND created_at <= %s
                         UNION
-                        SELECT DISTINCT cs.user_id 
+                        SELECT DISTINCT u.user_id 
                         FROM chat_sessions cs
+                        JOIN users u ON cs.token = u.mobile
                         JOIN chat_messages cm ON cs.id = cm.session_id
                         WHERE cm.message_type = 'user' 
                         AND cm.created_at >= %s AND cm.created_at <= %s

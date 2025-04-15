@@ -44,7 +44,7 @@ async def get_conversation_stats():
         
         # 3. 活跃用户数（过去30天内有对话的用户）
         active_users_result = execute_query(
-            """SELECT COUNT(DISTINCT user_id) as count FROM chat_sessions 
+            """SELECT COUNT(DISTINCT token) as count FROM chat_sessions 
                WHERE updated_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)"""
         )
         active_users = active_users_result[0]['count'] if active_users_result else 0
@@ -221,7 +221,7 @@ async def get_recent_conversations(
             """SELECT 
                   cs.id, 
                   cs.title, 
-                  cs.user_id, 
+                  cs.token, 
                   cs.created_at,
                   cs.updated_at,
                   COUNT(cm.id) as message_count
@@ -249,7 +249,7 @@ async def get_recent_conversations(
             conversations.append({
                 "id": conv['id'],
                 "title": conv['title'],
-                "user_id": conv['user_id'],
+                "token": conv['token'],
                 "message_count": conv['message_count'],
                 "created_at": conv['created_at'].strftime("%Y-%m-%d %H:%M:%S"),
                 "updated_at": conv['updated_at'].strftime("%Y-%m-%d %H:%M:%S") if conv['updated_at'] else None
