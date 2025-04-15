@@ -27,7 +27,7 @@ async def get_system_status() -> Dict[str, Any]:
         configs = execute_query("""
             SELECT config_key, config_value 
             FROM system_configs 
-            WHERE config_key IN ('data_source_count', 'response_time', 'system_status')
+            WHERE config_key IN ('data_sources_count', 'response_time_limit', 'system_status')
         """)
         
         # 转换为字典格式
@@ -39,8 +39,8 @@ async def get_system_status() -> Dict[str, Any]:
         return {
             "knowledge_base": version_info['knowledge_base_version'],
             "update_date": version_info['release_date'].strftime("%Y-%m-%d"),
-            "data_sources": f"{config_dict.get('data_source_count', '0')}个专业库",
-            "response_time": f"≤ {config_dict.get('response_time', '2')}秒",
+            "data_sources": f"{config_dict.get('data_sources_count', '0')}个专业库",
+            "response_time": f"≤ {config_dict.get('response_time_limit', '3')}秒",
             "system_status": system_status
         }
         
