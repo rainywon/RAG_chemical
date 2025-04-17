@@ -10,6 +10,7 @@ import logging
 import os
 import sys
 import numpy as np
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
@@ -287,6 +288,22 @@ class CustomFaithfulness:
         """获取评估详细信息"""
         return self.evaluation_details
 
+def clear_directory(dir_path):
+    """清空指定目录下的所有文件"""
+    try:
+        dir_path = Path(dir_path)
+        if dir_path.exists():
+            for file_path in dir_path.glob("*"):
+                if file_path.is_file():
+                    file_path.unlink()
+                elif file_path.is_dir():
+                    shutil.rmtree(file_path)
+            logger.info(f"已清空目录: {dir_path}")
+        else:
+            logger.warning(f"目录不存在，无需清空: {dir_path}")
+    except Exception as e:
+        logger.error(f"清空目录失败: {str(e)}")
+
 class GenerationEvaluator:
     """生成模块评估器，评估忠实度和答案相关性"""
     
@@ -453,6 +470,10 @@ class GenerationEvaluator:
             评估结果
         """
         logger.info("开始评估生成模块性能...")
+        
+        # 清空详细记录目录
+        logger.info("清空详细记录目录...")
+        clear_directory(DETAIL_DIR)
         
         try:
             # 加载测试数据
