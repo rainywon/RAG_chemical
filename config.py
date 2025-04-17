@@ -78,7 +78,13 @@ class Config:
         self.ollama_base_url = "http://localhost:11434"  # Ollama服务地址
         self.llm_max_tokens = 16384  # 生成文本的最大token数限制
         self.llm_temperature = 0.5  # 温度参数（0-1，控制生成随机性）
-
+        
+        # ████████ VLLM大模型配置 ████████
+        self.vllm_model_path = r"C:\wu\models\Qwen-7B-Chat"  # VLLM模型路径
+        self.vllm_tensor_parallel_size = 1  # 张量并行大小，根据GPU数量设置
+        self.vllm_gpu_memory_utilization = 0.9  # GPU显存使用率
+        self.vllm_swap_space = 4  # 交换空间大小，单位为GB
+        
         # ████████ RAG检索配置 ████████
         self.max_context_length = 5000  # 输入LLM的上下文最大长度（避免过长导致性能下降）
         self.bm25_top_k = 30  # BM25检索返回的候选文档数
