@@ -632,15 +632,15 @@ class RAGSystem:
 
             # 输出最终分数信息
             logger.info(f"📊 最终文档数目:{len(final_results)}篇")
-            logger.info("📊 最终检索结果:")
-            for i, res in enumerate(final_results, 1):
-                logger.info(
-                    f"文档 {i}: {res['source']}\n"
-                    # f"- 检索类型: {res['type']}\n"
-                    # f"- 原始分数: {res['raw_score']:.4f}\n"
-                    # f"- 重排序分数: {res['rerank_score']:.4f}\n"
-                    # f"- 最终分数: {res['final_score']:.4f}\n"
-                )
+            # logger.info("📊 最终检索结果:")
+            # for i, res in enumerate(final_results, 1):
+            #     logger.info(
+            #         f"文档 {i}: {res['source']}\n"
+            #         # f"- 检索类型: {res['type']}\n"
+            #         # f"- 原始分数: {res['raw_score']:.4f}\n"
+            #         # f"- 重排序分数: {res['rerank_score']:.4f}\n"
+            #         # f"- 最终分数: {res['final_score']:.4f}\n"
+            #     )
 
             # 提取文档和分数信息
             docs = [res["doc"] for res in final_results]
