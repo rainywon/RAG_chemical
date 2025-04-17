@@ -159,12 +159,10 @@ class RAGSystem:
                 base_url=self.config.ollama_base_url,  # Ollama服务地址
                 temperature=self.config.llm_temperature,  # 温度参数控制随机性
                 num_predict=self.config.llm_max_tokens,  # 最大生成token数
-                stop=["<|im_end|>", "【答案】"]
+                stop=["<|im_end|>"]
             )
 
             # 测试模型连接
-            test_prompt = "测试连接"
-            self.llm.invoke(test_prompt)
             logger.info("✅ Ollama模型初始化完成")
         except Exception as e:
             logger.error(f"❌ Ollama模型初始化失败: {str(e)}")
