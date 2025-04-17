@@ -81,7 +81,7 @@ class Config:
         # ████████ Ollama大模型配置 ████████
         self.ollama_base_url = "http://localhost:11434"  # Ollama服务地址
         self.llm_max_tokens = 16384  # 生成文本的最大token数限制
-        self.llm_temperature = 0.3  # 温度参数（0-1，控制生成随机性）
+        self.llm_temperature = 0.1  # 温度参数（0-1，控制生成随机性）
         
         # ████████ VLLM大模型配置 ████████
         self.vllm_model_path = r"C:\wu\models\Qwen-7B-Chat"  # VLLM模型路径
@@ -93,8 +93,6 @@ class Config:
         self.max_context_length = 12000  # 输入LLM的上下文最大长度（避免过长导致性能下降）
         self.bm25_top_k = 30  # BM25检索返回的候选文档数
         self.vector_top_k = 30  # 向量检索返回的候选文档数
-        self.retrieval_weight = 0.1  # 检索阶段分数权重（与重排序阶段的加权比例）
-        self.rerank_weight = 0.9  # 重排序阶段分数权重
         self.similarity_threshold = 0.5  # 相似度过滤阈值（低于此值的文档被丢弃）
         self.vector_similarity_threshold = 0.6  # 向量检索的相似度阈值
         self.bm25_similarity_threshold = 0.5  # BM25检索的相似度阈值

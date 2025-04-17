@@ -18,9 +18,9 @@ import numpy as np
 parent_dir = str(Path(__file__).resolve().parent.parent)
 if parent_dir not in sys.path:
     sys.path.append(parent_dir)
-
 from config import Config
 from rag_system import RAGSystem
+
 
 # 设置日志
 logging.basicConfig(
@@ -29,6 +29,9 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
+
+
+
 
 class RetrievalEvaluator:
     """检索模块评估器，专注于命中率和MRR评估"""

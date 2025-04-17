@@ -498,20 +498,17 @@ class RAGSystem:
                 if not isinstance(rerank_scores, list):
                     rerank_scores = [rerank_scores]
 
-            # 合并分数
+            # 更新结果分数
             for res, rerank_score in zip(results, rerank_scores):
-                # 打印各个分数
-                
-                # 加权平均策略
-                final_score = (
-                        self.config.retrieval_weight * res["score"] +
-                        self.config.rerank_weight * rerank_score
-                )
-                
+                # 直接使用重排序分数作为最终分数，不再进行加权平均
                 res.update({
+                    "original_score": res["score"],  # 保存原始检索分数
                     "rerank_score": rerank_score,
-                    "final_score": final_score
+                    "final_score": rerank_score  # 直接使用重排序分数作为最终分数
                 })
+                
+                # 记录日志
+                logger.debug(f"文档重排序: {res['source']} - 原始分数: {res['original_score']:.4f} - 重排序分数: {rerank_score:.4f}")
 
             # 按最终分数降序排列
             sorted_results = sorted(results, key=lambda x: x["final_score"], reverse=True)
