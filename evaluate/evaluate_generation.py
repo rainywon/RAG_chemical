@@ -1,14 +1,13 @@
 """
 评估RAG系统的生成模块性能
 专注于忠实度(Faithfulness)和答案相关性(Answer Relevancy)两个核心指标
+使用Ragas库进行标准化评估
 """
 
 import json
 import logging
 import os
 import sys
-import jieba
-from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List
@@ -20,6 +19,11 @@ if parent_dir not in sys.path:
 
 from rag_system import RAGSystem
 from config import Config
+
+# 导入ragas库用于RAG系统评估
+import pandas as pd
+from ragas.metrics import faithfulness, answer_relevancy
+from ragas.metrics.critique import harmfulness
 
 # 设置日志
 logging.basicConfig(
@@ -37,115 +41,51 @@ class GenerationEvaluator:
         """
         self.config = config
         self.rag_system = RAGSystem(config)
+        
+        # 初始化ragas评估指标
+        self.faithfulness_metric = faithfulness
+        self.answer_relevancy_metric = answer_relevancy
+        
         logger.info("生成评估器初始化完成")
-        
-    def _tokenize(self, text):
-        """中文分词"""
-        return [word for word in jieba.cut(text) if word.strip()]
-        
-    def evaluate_faithfulness(self, answer: str, context: str) -> float:
-        """评估答案对上下文的忠实度
-        
-        使用基于词汇重叠和N-gram匹配的方法评估
+    
+    def evaluate_with_ragas(self, question: str, answer: str, context: str) -> Dict[str, float]:
+        """使用ragas评估答案的忠实度和相关性
         
         Args:
+            question: 问题
             answer: 生成的答案
             context: 参考上下文
             
         Returns:
-            float: 忠实度分数 (0-1)
+            Dict[str, float]: 包含忠实度和相关性分数的字典
         """
         try:
-            if not answer or not context:
-                return 0.0
-                
-            # 分词处理
-            answer_tokens = self._tokenize(answer)
-            context_tokens = self._tokenize(context)
+            # 准备ragas评估数据
+            data = {
+                "question": [question],
+                "answer": [answer],
+                "contexts": [[context]]
+            }
             
-            if not answer_tokens or not context_tokens:
-                return 0.0
+            df = pd.DataFrame(data)
             
-            # 计算词汇重叠率
-            answer_counter = Counter(answer_tokens)
-            context_counter = Counter(context_tokens)
+            # 计算忠实度分数
+            faithfulness_score = self.faithfulness_metric.score(df)["faithfulness"].iloc[0]
             
-            # 计算交集词汇总频次
-            overlap_count = sum((answer_counter & context_counter).values())
+            # 计算答案相关性分数
+            relevancy_score = self.answer_relevancy_metric.score(df)["answer_relevancy"].iloc[0]
             
-            # 计算答案词汇总数
-            answer_count = sum(answer_counter.values())
-            
-            # 词汇覆盖率
-            coverage_score = overlap_count / answer_count if answer_count > 0 else 0
-            
-            # N-gram匹配评分 (bigram)
-            def get_ngrams(tokens, n=2):
-                return [tuple(tokens[i:i+n]) for i in range(len(tokens)-n+1)]
-            
-            answer_bigrams = set(get_ngrams(answer_tokens))
-            context_bigrams = set(get_ngrams(context_tokens))
-            
-            bigram_overlap = len(answer_bigrams.intersection(context_bigrams))
-            bigram_score = bigram_overlap / len(answer_bigrams) if answer_bigrams else 0
-            
-            # 综合评分 (加权平均)
-            faithfulness_score = 0.7 * coverage_score + 0.3 * bigram_score
-            
-            return min(faithfulness_score, 1.0)  # 确保分数不超过1
+            return {
+                "faithfulness_score": faithfulness_score,
+                "answer_relevancy_score": relevancy_score
+            }
             
         except Exception as e:
-            logger.error(f"忠实度评分失败: {str(e)}")
-            return 0.0
-            
-    def evaluate_answer_relevancy(self, answer: str, question: str) -> float:
-        """评估答案与问题的相关性
-        
-        Args:
-            answer: 生成的答案
-            question: 原始问题
-            
-        Returns:
-            float: 相关性分数 (0-1)
-        """
-        try:
-            if not answer or not question:
-                return 0.0
-                
-            # 分词处理
-            answer_tokens = self._tokenize(answer)
-            question_tokens = self._tokenize(question)
-            
-            if not answer_tokens or not question_tokens:
-                return 0.0
-            
-            # 识别问题关键词（去除停用词）
-            stopwords = {'的', '了', '是', '在', '我', '有', '和', '就', '不', '人', '都', 
-                         '一', '一个', '上', '也', '很', '到', '说', '要', '去', '你', 
-                         '会', '着', '没有', '看', '好', '自己', '这', '那', '这个', '那个',
-                         '怎么', '什么', '如何', '为什么', '吗', '呢', '啊', '吧'}
-            
-            question_keywords = [token for token in question_tokens if token not in stopwords]
-            
-            # 计算关键词覆盖率
-            keyword_hits = sum(1 for keyword in question_keywords if keyword in answer_tokens)
-            keyword_coverage = keyword_hits / len(question_keywords) if question_keywords else 0
-            
-            # 问题主题词在答案中的密度
-            question_main_words = [token for token in question_keywords if len(token) > 1]
-            if question_main_words:
-                main_word_density = sum(answer_tokens.count(word) for word in question_main_words) / len(answer_tokens)
-            else:
-                main_word_density = 0
-                
-            # 综合评分
-            relevancy_score = 0.7 * keyword_coverage + 0.3 * main_word_density
-            
-            return min(relevancy_score, 1.0)
-            
-        except Exception as e:
-            logger.error(f"答案相关性评分失败: {str(e)}")
-            return 0.0
+            logger.error(f"Ragas评估失败: {str(e)}")
+            return {
+                "faithfulness_score": 0.0,
+                "answer_relevancy_score": 0.0
+            }
 
     def run_evaluation(self, test_data_path: str) -> Dict[str, Any]:
         """运行完整评估流程
@@ -183,12 +123,13 @@ class GenerationEvaluator:
                     # 使用参考上下文进行评估（如果有）
                     context_for_eval = reference_context if reference_context else retrieved_context
                     
-                    # 评估忠实度
-                    faithfulness_score = self.evaluate_faithfulness(generated_answer, context_for_eval)
-                    logger.info(f"忠实度评分: {faithfulness_score:.4f}")
+                    # 使用ragas评估
+                    ragas_scores = self.evaluate_with_ragas(question, generated_answer, context_for_eval)
                     
-                    # 评估相关性
-                    relevancy_score = self.evaluate_answer_relevancy(generated_answer, question)
+                    faithfulness_score = ragas_scores["faithfulness_score"]
+                    relevancy_score = ragas_scores["answer_relevancy_score"]
+                    
+                    logger.info(f"忠实度评分: {faithfulness_score:.4f}")
                     logger.info(f"相关性评分: {relevancy_score:.4f}")
                     
                     # 累计分数
