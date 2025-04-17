@@ -154,7 +154,7 @@ class RAGSystem:
             self.llm = OllamaLLM(
                 model="deepseek_8B:latest",  # 模型名称
                 #deepseek_8B:latest   1513b8b198dc    8.5 GB    59 seconds ago
-                # deepseek-r1:8b             28f8fd6cdc67    4.9 GB    46 minutes ago
+                # deepseek-r1:8b             2deepseek_8B:latest GB    46 minutes ago
                 # deepseek-r1:14b            ea35dfe18182    9.0 GB    29 hours ago
                 base_url=self.config.ollama_base_url,  # Ollama服务地址
                 temperature=self.config.llm_temperature,  # 温度参数控制随机性
