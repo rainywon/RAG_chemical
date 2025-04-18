@@ -39,24 +39,38 @@ async def get_current_user(request: Request):
         # 从Authorization头获取token
         auth_header = request.headers.get('Authorization')
         if not auth_header or not auth_header.startswith('Bearer '):
+            logger.error(f"无效的认证头: {auth_header}")
             raise HTTPException(status_code=401, detail="无效的认证信息")
         
         token = auth_header.split(' ')[1]
+        logger.info(f"开始验证token: {token[:10]}...")
         
         # 查询admin_tokens表
         admin_result = execute_query(
-            "SELECT admin_id FROM admin_tokens WHERE token = %s AND is_valid = 1 AND expire_at > NOW()",
+            "SELECT admin_id, expire_at, is_valid FROM admin_tokens WHERE token = %s",
             (token,)
         )
         
         if admin_result:
-            admin_id = admin_result[0]['admin_id']
+            admin_token = admin_result[0]
+            # 检查token是否有效
+            if not admin_token['is_valid']:
+                logger.error(f"Admin token已失效: {token[:10]}...")
+                raise HTTPException(status_code=401, detail="token已失效")
+                
+            # 检查token是否过期
+            if admin_token['expire_at'] < datetime.now():
+                logger.error(f"Admin token已过期: {token[:10]}...")
+                raise HTTPException(status_code=401, detail="token已过期")
+                
+            admin_id = admin_token['admin_id']
             # 获取管理员的详细信息
             admin_info = execute_query(
                 "SELECT admin_id, full_name, phone_number FROM admins WHERE admin_id = %s",
                 (admin_id,)
             )
             if admin_info:
+                logger.info(f"管理员认证成功: {admin_info[0]['full_name']}")
                 return {
                     "id": admin_id,
                     "role": "admin",
@@ -70,18 +84,30 @@ async def get_current_user(request: Request):
         
         # 查询user_tokens表
         user_result = execute_query(
-            "SELECT user_id FROM user_tokens WHERE token = %s AND is_valid = 1 AND expire_at > NOW()",
+            "SELECT user_id, expire_at, is_valid FROM user_tokens WHERE token = %s",
             (token,)
         )
         
         if user_result:
-            user_id = user_result[0]['user_id']
+            user_token = user_result[0]
+            # 检查token是否有效
+            if not user_token['is_valid']:
+                logger.error(f"User token已失效: {token[:10]}...")
+                raise HTTPException(status_code=401, detail="token已失效")
+                
+            # 检查token是否过期
+            if user_token['expire_at'] < datetime.now():
+                logger.error(f"User token已过期: {token[:10]}...")
+                raise HTTPException(status_code=401, detail="token已过期")
+            
+            user_id = user_token['user_id']
             # 获取用户的详细信息
             user_info = execute_query(
                 "SELECT user_id, mobile FROM users WHERE user_id = %s",
                 (user_id,)
             )
             if user_info:
+                logger.info(f"用户认证成功: {user_info[0]['mobile']}")
                 return {
                     "id": user_id,
                     "role": "user",
@@ -94,9 +120,12 @@ async def get_current_user(request: Request):
             }
         
         # 如果没有找到对应token，抛出异常
+        logger.error(f"未找到匹配的token: {token[:10]}...")
         raise HTTPException(status_code=401, detail="无效的token")
     except Exception as e:
         logger.error(f"验证用户身份时出错: {str(e)}")
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(status_code=401, detail=str(e))
 
 # 记录操作日志
