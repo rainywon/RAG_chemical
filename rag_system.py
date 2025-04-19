@@ -476,31 +476,54 @@ class RAGSystem:
         :return: 重排序后的结果列表
         """
         try:
-            # 准备模型输入对（问题-文档）
-            pairs = [(question, res["doc"].page_content) for res in results]
+            if not results:
+                return results
 
-            # 对输入进行tokenize和批处理
-            inputs = self.rerank_tokenizer(
-                pairs,
-                padding=True,  # 自动填充
-                truncation=True,  # 自动截断
-                max_length=2048,  # 最大长度限制
-                return_tensors="pt"  # 返回PyTorch张量
-            )
-
-            # 模型推理
-            with torch.no_grad():
-                outputs = self.rerank_model(**inputs)
-                # 使用sigmoid转换分数
-                rerank_scores = torch.sigmoid(outputs.logits).squeeze().tolist()
+            # 批处理逻辑，每次处理少量文档
+            batch_size = 8  # 减小批处理大小以避免张量维度不匹配
+            batched_rerank_scores = []
+            
+            # 限制文档长度，避免过长文档
+            max_doc_length = 5000  # 设置最大文档长度
+            for res in results:
+                if len(res["doc"].page_content) > max_doc_length:
+                    res["doc"].page_content = res["doc"].page_content[:max_doc_length]
+            
+            # 分批处理文档
+            for i in range(0, len(results), batch_size):
+                batch_results = results[i:i+batch_size]
+                batch_pairs = [(question, res["doc"].page_content) for res in batch_results]
                 
-                # 确保rerank_scores是列表
-                if not isinstance(rerank_scores, list):
-                    rerank_scores = [rerank_scores]
+                try:
+                    # 对输入进行tokenize和批处理
+                    batch_inputs = self.rerank_tokenizer(
+                        batch_pairs,
+                        padding=True,
+                        truncation=True,
+                        max_length=512,  # 限制统一的最大长度
+                        return_tensors="pt"
+                    )
+                    
+                    # 模型推理
+                    with torch.no_grad():
+                        batch_outputs = self.rerank_model(**batch_inputs)
+                        # 使用sigmoid转换分数
+                        batch_scores = torch.sigmoid(batch_outputs.logits).squeeze().tolist()
+                        
+                        # 确保batch_scores是列表
+                        if not isinstance(batch_scores, list):
+                            batch_scores = [batch_scores]
+                        
+                        batched_rerank_scores.extend(batch_scores)
+                except Exception as e:
+                    # 批处理失败时，使用原始分数
+                    logger.warning(f"文档批次 {i//batch_size+1} 重排序失败: {str(e)}")
+                    for res in batch_results:
+                        batched_rerank_scores.append(res["score"])
 
             # 更新结果分数
-            for res, rerank_score in zip(results, rerank_scores):
-                # 直接使用重排序分数作为最终分数，不再进行加权平均
+            for res, rerank_score in zip(results, batched_rerank_scores):
+                # 直接使用重排序分数作为最终分数
                 res.update({
                     "original_score": res["score"],  # 保存原始检索分数
                     "rerank_score": rerank_score,
@@ -517,8 +540,18 @@ class RAGSystem:
             return self._diversify_results(sorted_results)
             
         except Exception as e:
-            logger.error(f"重排序失败: {str(e)}")
-            return results  # 失败时返回原始排序
+            logger.error(f"重排序整体失败: {str(e)}")
+            # 确保每个结果都有必要的字段
+            for res in results:
+                if "final_score" not in res:
+                    res["final_score"] = res["score"]
+                if "rerank_score" not in res:
+                    res["rerank_score"] = res["score"]
+                if "original_score" not in res:
+                    res["original_score"] = res["score"]
+            
+            # 返回原始排序的结果
+            return sorted(results, key=lambda x: x["score"], reverse=True)
     
     def _diversify_results(self, ranked_results: List[Dict]) -> List[Dict]:
         """增强检索结果的多样性
@@ -613,62 +646,93 @@ class RAGSystem:
             # 混合检索
             raw_results = self._hybrid_retrieve(question)
             if not raw_results:
+                logger.warning("混合检索未返回任何结果")
                 return [], []
 
             # 直接重排序
-            reranked = self._rerank_documents(raw_results, question)
+            try:
+                reranked = self._rerank_documents(raw_results, question)
+            except Exception as e:
+                logger.error(f"重排序完全失败，使用原始结果: {str(e)}")
+                # 确保每个结果都有必要的字段
+                for res in raw_results:
+                    if "final_score" not in res:
+                        res["final_score"] = res["score"]
+                    if "rerank_score" not in res:
+                        res["rerank_score"] = res["score"]
+                reranked = sorted(raw_results, key=lambda x: x["score"], reverse=True)
 
             # 根据阈值过滤结果
-            final_results = [
-                res for res in reranked
-                if res["final_score"] >= self.config.similarity_threshold
-                and len(res["doc"].page_content.strip()) >= 12  # 添加长度检查
-            ]
-            final_results = sorted(
-                final_results,
-                key=lambda x: x["final_score"],
-                reverse=True
-            )
+            try:
+                final_results = [
+                    res for res in reranked
+                    if res["final_score"] >= self.config.similarity_threshold
+                    and len(res["doc"].page_content.strip()) >= 12  # 添加长度检查
+                ]
+                final_results = sorted(
+                    final_results,
+                    key=lambda x: x["final_score"],
+                    reverse=True
+                )[:self.config.final_top_k]  # 限制返回数量
+            except Exception as e:
+                logger.error(f"结果过滤失败，使用前N个结果: {str(e)}")
+                final_results = reranked[:min(len(reranked), self.config.final_top_k)]
 
             # 输出最终分数信息
             logger.info(f"📊 最终文档数目:{len(final_results)}篇")
-            # logger.info("📊 最终检索结果:")
-            # for i, res in enumerate(final_results, 1):
-            #     logger.info(
-            #         f"文档 {i}: {res['source']}\n"
-            #         # f"- 检索类型: {res['type']}\n"
-            #         # f"- 原始分数: {res['raw_score']:.4f}\n"
-            #         # f"- 重排序分数: {res['rerank_score']:.4f}\n"
-            #         # f"- 最终分数: {res['final_score']:.4f}\n"
-            #     )
 
             # 提取文档和分数信息
-            docs = [res["doc"] for res in final_results]
-            score_info = [{
-                "source": res["source"],
-                "type": res["type"],
-                "vector_score": res.get("score", 0),  # 兼容不同检索类型
-                "bm25_score": res.get("score", 0),
-                "rerank_score": res["rerank_score"],
-                "final_score": res["final_score"]
-            } for res in final_results]
+            docs = []
+            score_info = []
+            
+            for res in final_results:
+                try:
+                    doc = res["doc"]
+                    info = {
+                        "source": res["source"],
+                        "type": res.get("type", "unknown"),
+                        "vector_score": res.get("score", 0),
+                        "bm25_score": res.get("score", 0),
+                        "rerank_score": res.get("rerank_score", res.get("score", 0)),
+                        "final_score": res.get("final_score", res.get("score", 0))
+                    }
+                    docs.append(doc)
+                    score_info.append(info)
+                except Exception as e:
+                    logger.warning(f"处理单个结果时出错，已跳过: {str(e)}")
+                    continue
 
             return docs, score_info
         except Exception as e:
-            logger.error(f"文档检索失败: {str(e)}")
-            raise
+            logger.error(f"文档检索严重失败: {str(e)}", exc_info=True)
+            # 紧急情况下返回空结果而不是抛出异常
+            return [], []
 
     def _build_prompt(self, question: str, context: str) -> str:
-        """添加 CoT 触发指令"""
-        cot_instruction = (
-            "请逐步推理并解释你的思考过程，将思考过程放在<think></think>标签中"
+        """构建提示词模板"""
+        # 系统角色定义
+        system_role = (
+            "你是一位经验丰富的化工安全领域专家，具有深厚的专业知识和实践经验。"
+            "你需要基于提供的参考资料，给出准确、专业且易于理解的回答。"
+        )
+        
+        # 思考过程指令
+        reasoning_instruction = (
+            "请按照以下步骤回答问题：\n"
+            "1. 仔细阅读并理解提供的参考资料\n"
+            "2. 分析问题中的关键信息和要求\n"
+            "3. 从参考资料中提取相关信息\n"
+            "4. 给出详细的推理过程\n"
+            "5. 总结并给出最终答案\n\n"
+            "如果参考资料不足以回答问题，请直接说明无法回答。"
         )
         
         if context:
             return (
                 "<|im_start|>system\n"
-                f"你是一位经验丰富的化工安全领域专家，{cot_instruction}\n"
-                "上下文：\n{context}\n"
+                f"{system_role}\n"
+                f"{reasoning_instruction}\n"
+                "参考资料：\n{context}\n"
                 "<|im_end|>\n"
                 "<|im_start|>user\n"
                 "{question}\n"
@@ -748,36 +812,57 @@ class RAGSystem:
             try:
                 docs, score_info = self._retrieve_documents(question)
                 if not docs:
-                    yield "⚠️ 未找到相关文档..."
+                    logger.warning(f"查询 '{question[:50]}...' 未找到相关文档")
+                    yield json.dumps({
+                        "type": "error",
+                        "data": "⚠️ 未找到相关文档，尝试直接回答..."
+                    }) + "\n"
+                    # 当没有文档时，转为直接生成模式
+                    for chunk in self.stream_query_model(question):
+                        yield chunk
                     return
             except Exception as e:
-                logger.error(f"文档检索失败: {str(e)}")
-                yield "⚠️ 文档检索服务暂时不可用"
+                logger.error(f"文档检索失败: {str(e)}", exc_info=True)
+                yield json.dumps({
+                    "type": "error", 
+                    "data": "⚠️ 文档检索服务暂时不可用，尝试直接回答..."
+                }) + "\n"
+                # 检索失败时，转为直接生成模式
+                for chunk in self.stream_query_model(question):
+                    yield chunk
                 return
 
             # 格式化参考文档信息
-            references = self._format_references(docs, score_info)
-
-            # 发送参考文档信息
-            yield json.dumps({
-                "type": "references",
-                "data": references
-            }) + "\n"  # 添加换行符作为结束标记
+            try:
+                references = self._format_references(docs, score_info)
+                # 发送参考文档信息
+                yield json.dumps({
+                    "type": "references",
+                    "data": references
+                }) + "\n"
+            except Exception as e:
+                logger.error(f"格式化参考文档失败: {str(e)}")
+                # 继续执行，不中断流程
 
             # 阶段2：构建上下文
-            context = "\n\n".join([
-                f"【参考文档{i + 1}】{doc.page_content}\n"
-                f"- 来源: {Path(info['source']).name}\n"
-                f"- 综合置信度: {info['final_score'] * 100:.1f}%"
-                for i, (doc, info) in enumerate(zip(docs, score_info))
-            ])
+            try:
+                context = "\n\n".join([
+                    f"【参考文档{i + 1}】{doc.page_content}\n"
+                    f"- 来源: {Path(info['source']).name}\n"
+                    f"- 综合置信度: {info['final_score'] * 100:.1f}%"
+                    for i, (doc, info) in enumerate(zip(docs, score_info))
+                ])
+            except Exception as e:
+                logger.error(f"构建上下文失败: {str(e)}")
+                # 如果构建上下文失败，使用简化版本
+                context = "\n\n".join([f"【参考文档{i + 1}】{doc.page_content}" 
+                                      for i, doc in enumerate(docs)])
 
             # 阶段3：构建提示模板
             prompt = self._build_prompt(question, context)
 
             # 阶段4：流式生成
             try:
-                full_response = ""
                 for chunk in self.llm.stream(prompt):
                     cleaned_chunk = chunk.replace("<|im_end|>", "")
                     if cleaned_chunk:
@@ -786,20 +871,55 @@ class RAGSystem:
                             "type": "content",
                             "data": cleaned_chunk
                         }) + "\n"
-
             except Exception as e:
                 logger.error(f"流式生成中断: {str(e)}")
                 yield json.dumps({
                     "type": "error",
-                    "data": "\n⚠️ 生成过程发生意外中断"
+                    "data": "\n⚠️ 生成过程发生意外中断，请刷新页面重试"
+                }) + "\n"
+                # 尝试简单地发送最后一条信息
+                yield json.dumps({
+                    "type": "content",
+                    "data": "\n(系统提示：生成被中断，以上是已生成的部分内容)"
                 }) + "\n"
 
         except Exception as e:
-            logger.exception("流式处理严重错误")
+            logger.exception(f"流式处理严重错误: {str(e)}")
             yield json.dumps({
                 "type": "error",
-                "data": "⚠️ 系统处理请求时发生严重错误"
+                "data": "⚠️ 系统处理请求时发生严重错误，请联系管理员"
             }) + "\n"
+            # 尝试回退到简单模式
+            try:
+                yield json.dumps({
+                    "type": "content",
+                    "data": "\n正在尝试使用备用回答模式...\n"
+                }) + "\n"
+                
+                # 使用简单提示
+                simple_prompt = (
+                    "<|im_start|>system\n"
+                    "你是一位经验丰富的化工安全领域专家，请尽量回答用户问题。\n"
+                    "<|im_end|>\n"
+                    "<|im_start|>user\n"
+                    f"{question}\n"
+                    "<|im_end|>\n"
+                    "<|im_start|>assistant\n"
+                )
+                
+                for chunk in self.llm.stream(simple_prompt):
+                    cleaned_chunk = chunk.replace("<|im_end|>", "")
+                    if cleaned_chunk:
+                        yield json.dumps({
+                            "type": "content",
+                            "data": cleaned_chunk
+                        }) + "\n"
+            except:
+                # 如果备用模式也失败，发送简单的静态回复
+                yield json.dumps({
+                    "type": "content",
+                    "data": "\n很抱歉，系统暂时无法处理您的请求。请稍后再试。"
+                }) + "\n"
 
     def answer_query(self, question: str) -> Tuple[str, List[Dict], Dict]:
         """非流式RAG生成，适用于评估模块
@@ -814,29 +934,65 @@ class RAGSystem:
         
         try:
             # 阶段1：文档检索
-            docs, score_info = self._retrieve_documents(question)
-            if not docs:
-                return "未找到相关文档，无法回答该问题。", [], {"status": "no_docs"}
+            try:
+                docs, score_info = self._retrieve_documents(question)
+                if not docs:
+                    logger.warning(f"评估查询 '{question[:50]}...' 未找到相关文档")
+                    return "未找到相关文档，无法回答该问题。", [], {"status": "no_docs"}
+            except Exception as e:
+                logger.error(f"评估模式下文档检索失败: {str(e)}", exc_info=True)
+                return f"文档检索失败: {str(e)}", [], {"status": "retrieval_error", "error": str(e)}
             
             # 格式化参考文档信息
-            references = self._format_references(docs, score_info)
+            try:
+                references = self._format_references(docs, score_info)
+            except Exception as e:
+                logger.error(f"格式化参考文档失败: {str(e)}")
+                # 创建简化版参考信息
+                references = [{"file": f"文档{i+1}", "content": doc.page_content[:200] + "..."} 
+                             for i, doc in enumerate(docs)]
             
             # 阶段2：构建上下文
-            context = "\n\n".join([
-                f"【参考文档{i + 1}】{doc.page_content}\n"
-                f"- 来源: {Path(info['source']).name}\n"
-                f"- 综合置信度: {info['final_score'] * 100:.1f}%"
-                for i, (doc, info) in enumerate(zip(docs, score_info))
-            ])
+            try:
+                context = "\n\n".join([
+                    f"【参考文档{i + 1}】{doc.page_content}\n"
+                    f"- 来源: {Path(info['source']).name}\n"
+                    f"- 综合置信度: {info['final_score'] * 100:.1f}%"
+                    for i, (doc, info) in enumerate(zip(docs, score_info))
+                ])
+            except Exception as e:
+                logger.error(f"构建上下文失败: {str(e)}")
+                # 如果构建上下文失败，使用简化版本
+                context = "\n\n".join([f"【参考文档{i + 1}】{doc.page_content}" 
+                                     for i, doc in enumerate(docs)])
             
             # 阶段3：构建提示模板
             prompt = self._build_prompt(question, context)
             
             # 阶段4：一次性生成（非流式）
-            answer = self.llm.invoke(prompt)
-            cleaned_answer = answer.replace("<|im_end|>", "").strip()
-            
-            return cleaned_answer, references, {"status": "success"}
+            try:
+                answer = self.llm.invoke(prompt)
+                cleaned_answer = answer.replace("<|im_end|>", "").strip()
+                
+                return cleaned_answer, references, {"status": "success"}
+            except Exception as e:
+                logger.error(f"生成回答失败: {str(e)}")
+                # 尝试使用简化提示
+                try:
+                    simple_prompt = (
+                        "<|im_start|>system\n"
+                        "你是一位经验丰富的化工安全领域专家，请尽量回答用户问题。\n"
+                        "<|im_end|>\n"
+                        "<|im_start|>user\n"
+                        f"{question}\n"
+                        "<|im_end|>\n"
+                        "<|im_start|>assistant\n"
+                    )
+                    fallback_answer = self.llm.invoke(simple_prompt)
+                    cleaned_fallback = fallback_answer.replace("<|im_end|>", "").strip()
+                    return cleaned_fallback, references, {"status": "partial_success", "error": str(e)}
+                except:
+                    return f"生成回答失败: {str(e)}", references, {"status": "generation_error", "error": str(e)}
             
         except Exception as e:
             logger.exception(f"非流式处理严重错误: {str(e)}")

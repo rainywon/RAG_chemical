@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 TEST_DATA_PATH = r"C:\wu\ArtifexAI\chemical_rag\evaluate\test_data\generation_test_data.json"
 RESULT_PATH = r"C:\wu\ArtifexAI\chemical_rag\evaluate\results\generation_results.json"
 # 详细记录目录
-DETAIL_DIR = r"C:\wu\ArtifexAI\chemical_rag\evaluate\results\details"
+DETAIL_DIR = r"C:\wu\ArtifexAI\chemical_rag\evaluate\results\generation_details"
 
 # 确保详细记录目录存在
 Path(DETAIL_DIR).mkdir(parents=True, exist_ok=True)

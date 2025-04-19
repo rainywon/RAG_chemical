@@ -127,7 +127,7 @@ class PathUtils:
             return True
         
         return False
-    
+
 
 class RetrievalMetrics:
     """检索评估指标计算类"""
@@ -148,8 +148,8 @@ class RetrievalMetrics:
         top_k_docs = retrieved_paths[:k] if len(retrieved_paths) >= k else retrieved_paths
         
         # 检查是否命中
-                    for ref_doc in relevant_docs:
-                        for ret_doc in top_k_docs:
+        for ref_doc in relevant_docs:
+            for ret_doc in top_k_docs:
                 if PathUtils.check_path_match(ref_doc, ret_doc):
                     return 1.0
         
@@ -167,10 +167,10 @@ class RetrievalMetrics:
             MRR分数(0到1之间)
         """
         # 计算倒数排名
-                    for i, doc_path in enumerate(retrieved_paths):
-                    for ref_doc in relevant_docs:
+        for i, doc_path in enumerate(retrieved_paths):
+            for ref_doc in relevant_docs:
                 if PathUtils.check_path_match(doc_path, ref_doc):
-                            # 找到第一个相关文档的位置(从1开始计数)
+                    # 找到第一个相关文档的位置(从1开始计数)
                     return 1.0 / (i + 1)
         
         # 如果没有找到相关文档
@@ -237,7 +237,7 @@ class ReportGenerator:
             report.append("\n---\n")
         
         return "\n".join(report)
-    
+
 
 class RetrievalEvaluator:
     """检索模块评估器，评估命中率和MRR"""
@@ -440,7 +440,7 @@ class RetrievalEvaluator:
             logger.error(error_msg)
             raise FileNotFoundError(error_msg)
             
-            # 加载测试数据
+        # 加载测试数据
         try:
             with open(test_data_path, 'r', encoding='utf-8') as f:
                 test_data = json.load(f)
@@ -557,13 +557,13 @@ class RetrievalEvaluator:
 
 if __name__ == "__main__":
     try:
-    # 加载配置
+        # 加载配置
         config_path = Path(parent_dir) / "config.py"
         if not config_path.exists():
             logger.error(f"未找到配置文件: {config_path}")
             sys.exit(1)
             
-    config = Config()
+        config = Config()
         
         # 运行评估
         evaluator = RetrievalEvaluator(config)
