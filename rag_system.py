@@ -750,6 +750,43 @@ class RAGSystem:
                 "<|im_start|>assistant\n"
             ).format(question=question)
 
+    def _build_chat_prompt(self, current_question: str, chat_history: List[Dict], context: str = "") -> str:
+        """构建多轮对话的提示词模板
+        
+        :param current_question: 当前用户问题
+        :param chat_history: 聊天历史记录列表，包含message_type和content
+        :param context: 相关文档上下文
+        :return: 完整的提示词
+        """
+        # 系统角色定义
+        system_role = (
+            "你是一位经验丰富的化工安全领域专家，具有深厚的专业知识和实践经验。"
+            "你需要基于提供的参考资料和聊天历史，给出准确、专业且易于理解的回答。"
+            "请保持回答的连贯性和一致性，考虑之前的对话内容。"
+        )
+        
+        # 构建系统提示部分
+        prompt = "<|im_start|>system\n" + system_role + "\n"
+        
+        # 添加参考资料（如果有）
+        if context:
+            prompt += "参考资料：\n" + context[:self.config.max_context_length] + "\n"
+        
+        prompt += "<|im_end|>\n"
+        
+        # 添加聊天历史
+        for message in chat_history:
+            role = "user" if message["message_type"] == "user" else "assistant"
+            content = message.get("content", "")
+            if content:  # 确保消息内容不为空
+                prompt += f"<|im_start|>{role}\n{content}\n<|im_end|>\n"
+        
+        # 添加当前问题和助手角色
+        prompt += f"<|im_start|>user\n{current_question}\n<|im_end|>\n"
+        prompt += "<|im_start|>assistant\n"
+        
+        return prompt
+        
     def _format_references(self, docs: List[Document], score_info: List[Dict]) -> List[Dict]:
         """格式化参考文档信息"""
         return [
@@ -762,106 +799,66 @@ class RAGSystem:
             }
             for doc, info in zip(docs, score_info)
         ]
-    def stream_query_model(self, question: str) -> Generator[str, None, None]:
-        """纯模型流式生成（不经过RAG）"""
-        logger.info(f"🌀 正在直接流式生成: {question[:50]}...")
-        try:
-            if not question.strip():
-                yield "⚠️ 请输入有效问题"
-                return
 
-            # 构建基础提示模板（不包含上下文）
-            prompt = (
-                "<|im_start|>system\n"
-                "你是一位经验丰富的化工安全领域专家，请专业且准确地回答问题。\n"
-                "<|im_end|>\n"
-                "<|im_start|>user\n"
-                f"{question}\n"
-                "<|im_end|>\n"
-                "<|im_start|>assistant\n"
-            )
 
-            try:
-                full_response = ""
-                for chunk in self.llm.stream(prompt):
-                    cleaned_chunk = chunk.replace("<|im_end|>", "")
-                    if cleaned_chunk:
-                        # 发送生成内容（作为普通文本）
-                        yield json.dumps({
-                            "type": "content",
-                            "data": cleaned_chunk
-                        }) + "\n"
-
-            except Exception as e:
-                logger.error(f"直接生成中断: {str(e)}")
-                yield "\n⚠️ 生成过程发生意外中断，请稍后重试"
-
-        except Exception as e:
-            logger.exception("直接流式生成错误")
-            yield "⚠️ 系统处理请求时发生严重错误，请联系管理员"
-
-    def stream_query_rag_with_kb(self, question: str) -> Generator[str, None, None]:
-        """结合知识库的流式RAG生成"""
-        logger.info(f"🌊 正在流式处理查询: {question[:50]}...")
-        if not question.strip():
-            yield "⚠️ 请输入有效问题"
+    def stream_query_with_history(self, session_id: str, current_question: str, 
+                               chat_history: List[Dict] = None) -> Generator[str, None, None]:
+        """带聊天历史的流式RAG查询
+        
+        :param session_id: 会话ID
+        :param current_question: 当前用户问题
+        :param chat_history: 聊天历史列表
+        :return: 生成器，流式输出结果
+        """
+        logger.info(f"🔄 多轮对话处理 | 会话ID: {session_id} | 问题: {current_question[:50]}...")
+        
+        if not current_question.strip():
+            yield json.dumps({
+                "type": "error",
+                "data": "⚠️ 请输入有效问题"
+            }) + "\n"
             return
-
+        
+        # 初始化聊天历史
+        if chat_history is None:
+            chat_history = []
+        
         try:
             # 阶段1：文档检索
             try:
-                docs, score_info = self._retrieve_documents(question)
+                docs, score_info = self._retrieve_documents(current_question)
                 if not docs:
-                    logger.warning(f"查询 '{question[:50]}...' 未找到相关文档")
+                    logger.warning(f"查询 '{current_question[:50]}...' 未找到相关文档")
+                    # 当没有文档时，仍然使用历史记录，但无上下文
+                    context = ""
+                else:
+                    # 格式化参考文档信息并发送
+                    references = self._format_references(docs, score_info)
                     yield json.dumps({
-                        "type": "error",
-                        "data": "⚠️ 未找到相关文档，尝试直接回答..."
+                        "type": "references",
+                        "data": references
                     }) + "\n"
-                    # 当没有文档时，转为直接生成模式
-                    for chunk in self.stream_query_model(question):
-                        yield chunk
-                    return
+                    
+                    # 构建上下文
+                    context = "\n\n".join([
+                        f"【参考文档{i + 1}】{doc.page_content}\n"
+                        f"- 来源: {Path(info['source']).name}\n"
+                        f"- 综合置信度: {info['final_score'] * 100:.1f}%"
+                        for i, (doc, info) in enumerate(zip(docs, score_info))
+                    ])
             except Exception as e:
                 logger.error(f"文档检索失败: {str(e)}", exc_info=True)
+                # 检索失败时使用空上下文
+                context = ""
                 yield json.dumps({
                     "type": "error", 
-                    "data": "⚠️ 文档检索服务暂时不可用，尝试直接回答..."
+                    "data": "⚠️ 文档检索服务暂时不可用，将使用聊天历史回答..."
                 }) + "\n"
-                # 检索失败时，转为直接生成模式
-                for chunk in self.stream_query_model(question):
-                    yield chunk
-                return
-
-            # 格式化参考文档信息
-            try:
-                references = self._format_references(docs, score_info)
-                # 发送参考文档信息
-                yield json.dumps({
-                    "type": "references",
-                    "data": references
-                }) + "\n"
-            except Exception as e:
-                logger.error(f"格式化参考文档失败: {str(e)}")
-                # 继续执行，不中断流程
-
-            # 阶段2：构建上下文
-            try:
-                context = "\n\n".join([
-                    f"【参考文档{i + 1}】{doc.page_content}\n"
-                    f"- 来源: {Path(info['source']).name}\n"
-                    f"- 综合置信度: {info['final_score'] * 100:.1f}%"
-                    for i, (doc, info) in enumerate(zip(docs, score_info))
-                ])
-            except Exception as e:
-                logger.error(f"构建上下文失败: {str(e)}")
-                # 如果构建上下文失败，使用简化版本
-                context = "\n\n".join([f"【参考文档{i + 1}】{doc.page_content}" 
-                                      for i, doc in enumerate(docs)])
-
-            # 阶段3：构建提示模板
-            prompt = self._build_prompt(question, context)
-
-            # 阶段4：流式生成
+            
+            # 阶段2：构建多轮对话提示
+            prompt = self._build_chat_prompt(current_question, chat_history, context)
+            
+            # 阶段3：流式生成
             try:
                 for chunk in self.llm.stream(prompt):
                     cleaned_chunk = chunk.replace("<|im_end|>", "")
@@ -877,49 +874,63 @@ class RAGSystem:
                     "type": "error",
                     "data": "\n⚠️ 生成过程发生意外中断，请刷新页面重试"
                 }) + "\n"
-                # 尝试简单地发送最后一条信息
-                yield json.dumps({
-                    "type": "content",
-                    "data": "\n(系统提示：生成被中断，以上是已生成的部分内容)"
-                }) + "\n"
-
+                
         except Exception as e:
-            logger.exception(f"流式处理严重错误: {str(e)}")
+            logger.exception(f"多轮对话处理错误: {str(e)}")
             yield json.dumps({
                 "type": "error",
                 "data": "⚠️ 系统处理请求时发生严重错误，请联系管理员"
             }) + "\n"
-            # 尝试回退到简单模式
+            
+    def stream_query_model_with_history(self, session_id: str, current_question: str, 
+                                 chat_history: List[Dict] = None) -> Generator[str, None, None]:
+        """直接大模型的多轮对话流式生成（不使用知识库）
+        
+        :param session_id: 会话ID
+        :param current_question: 当前用户问题
+        :param chat_history: 聊天历史列表
+        :return: 生成器，流式输出结果
+        """
+        logger.info(f"🔄 直接多轮对话 | 会话ID: {session_id} | 问题: {current_question[:50]}...")
+        
+        if not current_question.strip():
+            yield json.dumps({
+                "type": "error",
+                "data": "⚠️ 请输入有效问题"
+            }) + "\n"
+            return
+        
+        # 初始化聊天历史
+        if chat_history is None:
+            chat_history = []
+        
+        try:
+            # 构建多轮对话提示（无知识库上下文）
+            prompt = self._build_chat_prompt(current_question, chat_history)
+            
+            # 流式生成
             try:
-                yield json.dumps({
-                    "type": "content",
-                    "data": "\n正在尝试使用备用回答模式...\n"
-                }) + "\n"
-                
-                # 使用简单提示
-                simple_prompt = (
-                    "<|im_start|>system\n"
-                    "你是一位经验丰富的化工安全领域专家，请尽量回答用户问题。\n"
-                    "<|im_end|>\n"
-                    "<|im_start|>user\n"
-                    f"{question}\n"
-                    "<|im_end|>\n"
-                    "<|im_start|>assistant\n"
-                )
-                
-                for chunk in self.llm.stream(simple_prompt):
+                for chunk in self.llm.stream(prompt):
                     cleaned_chunk = chunk.replace("<|im_end|>", "")
                     if cleaned_chunk:
+                        # 发送生成内容
                         yield json.dumps({
                             "type": "content",
                             "data": cleaned_chunk
                         }) + "\n"
-            except:
-                # 如果备用模式也失败，发送简单的静态回复
+            except Exception as e:
+                logger.error(f"直接多轮对话生成中断: {str(e)}")
                 yield json.dumps({
-                    "type": "content",
-                    "data": "\n很抱歉，系统暂时无法处理您的请求。请稍后再试。"
+                    "type": "error",
+                    "data": "\n⚠️ 生成过程发生意外中断，请刷新页面重试"
                 }) + "\n"
+                
+        except Exception as e:
+            logger.exception(f"直接多轮对话处理错误: {str(e)}")
+            yield json.dumps({
+                "type": "error",
+                "data": "⚠️ 系统处理请求时发生严重错误，请联系管理员"
+            }) + "\n"
 
     def answer_query(self, question: str) -> Tuple[str, List[Dict], Dict]:
         """非流式RAG生成，适用于评估模块
