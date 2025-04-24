@@ -16,6 +16,8 @@ from build_vector_store import VectorDBBuilder  # 向量数据库构建器
 import numpy as np  # 数值计算库
 import pickle  # 用于序列化对象
 import hashlib  # 用于生成哈希值
+import time  # 添加time模块用于时间测量
+import re  # 用于正则表达式处理
 
 # 提前初始化jieba，加快后续启动速度
 import os
@@ -141,6 +143,21 @@ class RAGSystem:
                 self.config.rerank_model_path
             )
             self.rerank_tokenizer = AutoTokenizer.from_pretrained(self.config.rerank_model_path)
+            
+            # 尝试将模型移至GPU，如果可用
+            if torch.cuda.is_available():
+                logger.info("🚀 将重排序模型移至GPU加速")
+                self.rerank_model = self.rerank_model.to("cuda")
+                self.using_gpu = True
+            else:
+                self.using_gpu = False
+                
+            # 设置为评估模式，提高推理速度
+            self.rerank_model.eval()
+            
+            # 初始化重排序缓存
+            self.rerank_cache = {}
+            
             logger.info("✅ rerank模型初始化完成")
         except Exception as e:
             logger.error(f"❌ rerank模型初始化失败: {str(e)}")
@@ -189,7 +206,7 @@ class RAGSystem:
             # 尝试加载缓存的分词结果
             if cache_path.exists():
                 try:
-                    logger.info(f"发现BM25分词缓存，正在加载: {cache_path}")
+                    logger.info(f"发现BM25分词缓存，正在加载：{cache_path}")
                     with open(cache_path, 'rb') as f:
                         cached_data = pickle.load(f)
                         tokenized_docs = cached_data.get('tokenized_docs')
@@ -223,7 +240,7 @@ class RAGSystem:
                 
                 # 保存分词结果到缓存
                 try:
-                    logger.info(f"保存分词结果到缓存: {cache_path}")
+                    logger.info(f"保存分词结果到缓存：{cache_path}")
                     with open(cache_path, 'wb') as f:
                         pickle.dump({'tokenized_docs': tokenized_docs}, f)
                 except Exception as e:
@@ -242,99 +259,25 @@ class RAGSystem:
             logger.error(f"❌ BM25初始化失败: {str(e)}")
             raise RuntimeError(f"BM25初始化失败: {str(e)}")
 
-    def _enhance_query(self, original_query: str) -> List[str]:
-        """查询增强与扩展
-        
-        :param original_query: 原始查询
-        :return: 增强后的查询列表
-        """
-        # 基础查询始终包含原始查询
-        queries = [original_query]
-        
-        try:
-            # 1. 移除停用词的简化查询
-            stop_words = {'的', '了', '是', '在', '我', '有', '和', '就', '不', '人', '都', 
-                         '一', '一个', '上', '也', '很', '到', '说', '要', '去', '你', 
-                         '会', '着', '没有', '看', '好', '自己', '这'}
-            
-            words = self._tokenize(original_query)
-            simplified_query = ' '.join([w for w in words if w not in stop_words])
-            
-            if simplified_query and simplified_query != original_query:
-                queries.append(simplified_query)
-            
-            # 2. 专业术语提取和重点关注
-            # 化工安全领域的专业术语及其权重
-            chemical_terms = {
-                '化学品': 2.0, '易燃': 2.0, '易爆': 2.0, '有毒': 2.0, '腐蚀': 2.0, 
-                '危险': 1.5, '安全': 1.5, '防护': 1.5, '事故': 1.5, '泄漏': 2.0,
-                '爆炸': 2.0, '火灾': 2.0, '中毒': 2.0, '应急': 1.5, '处置': 1.5,
-                '风险': 1.5, '危害': 1.5, '防范': 1.5, '措施': 1.0, '操作': 1.0,
-                '反应': 1.8, '物质': 1.8, '气体': 1.8, '液体': 1.8, '固体': 1.8,
-                '浓度': 1.8, '温度': 1.8, '压力': 1.8, '储存': 1.8, '运输': 1.8
-            }
-            
-            # 提取查询中的专业术语
-            matched_terms = []
-            term_weights = {}
-            
-            for term, weight in chemical_terms.items():
-                if term in original_query:
-                    matched_terms.append(term)
-                    term_weights[term] = weight
-            
-            if matched_terms:
-                # 构建专业术语增强的查询
-                terms_query = ' '.join(matched_terms)
-                if terms_query != original_query and len(matched_terms) >= 2:
-                    queries.append(terms_query)
-                
-                # 构建加权查询，复制重要术语
-                weighted_query_parts = []
-                for word in words:
-                    if word in term_weights:
-                        # 根据权重重复术语
-                        repeat = max(1, int(term_weights[word]))
-                        weighted_query_parts.extend([word] * repeat)
-                    else:
-                        weighted_query_parts.append(word)
-                
-                weighted_query = ' '.join(weighted_query_parts)
-                if weighted_query != original_query:
-                    queries.append(weighted_query)
-            
-            logger.info(f"📝 查询增强: 从原始查询'{original_query}'生成了{len(queries)}个变体")
-            return queries
-            
-        except Exception as e:
-            logger.warning(f"⚠️ 查询增强失败: {str(e)}")
-            return [original_query]  # 返回原始查询
-
     def _hybrid_retrieve(self, question: str) -> List[Dict[str, Any]]:
         """混合检索流程（向量+BM25）
 
         :param question: 用户问题
         :return: 包含文档和检索信息的字典列表
         """
-        results = []
-        
-        # 查询增强处理
-        enhanced_queries = self._enhance_query(question)
-        
         # 动态确定检索策略权重
         vector_weight, bm25_weight = self._determine_retrieval_weights(question)
+        logger.info(f"动态权重: 向量检索={vector_weight:.2f}, BM25检索={bm25_weight:.2f}")
 
-        # 向量检索部分
-        all_vector_results = []
-        for query in enhanced_queries:
-            vector_results = self.vector_store.similarity_search_with_score(
-                query, k=self.config.vector_top_k  # 获取top k结果
-            )
-            all_vector_results.extend(vector_results)
+        # 一、向量检索部分
+        # 1. 执行向量检索
+        vector_results = self.vector_store.similarity_search_with_score(
+            question, k=self.config.vector_top_k
+        )
         
-        # 去重并保留最高分数
+        # 2. 对向量检索结果去重并标准化分数
         unique_vector_results = {}
-        for doc, score in all_vector_results:
+        for doc, score in vector_results:
             doc_id = doc.metadata.get("source", "") + str(hash(doc.page_content))
             norm_score = (score + 1) / 2  # 转换为标准余弦值（0~1范围）
             
@@ -342,77 +285,70 @@ class RAGSystem:
             if doc_id not in unique_vector_results or norm_score > unique_vector_results[doc_id][1]:
                 unique_vector_results[doc_id] = (doc, norm_score)
         
-        # 对向量检索结果进行阈值过滤
+        # 3. 过滤低分结果并应用权重
         filtered_vector_results = []
         for doc, score in unique_vector_results.values():
-            if score >= self.config.vector_similarity_threshold:  # 使用统一的相似度阈值
+            if score >= self.config.vector_similarity_threshold:
+                # 应用向量检索权重
+                weighted_score = score * vector_weight
                 filtered_vector_results.append({
                     "doc": doc,
-                    "score": score,  # 应用动态权重
-                    "raw_score": score,
+                    "score": weighted_score,  # 应用权重后的分数
+                    "raw_score": score,       # 原始分数
                     "type": "vector",
                     "source": doc.metadata.get("source", "unknown")
                 })
-                # logger.info(f"🔍 向量检索结果: {doc.metadata['source']} - 分数: {score:.4f}")
 
-        # BM25检索部分
-        all_bm25_scores = {}
-        for query in enhanced_queries:
-            tokenized_query = self._tokenize(query)  # 问题分词
-            bm25_scores = self.bm25.get_scores(tokenized_query)  # 计算BM25分数
-            
-            # 更新最高分数
-            for idx, score in enumerate(bm25_scores):
-                if idx not in all_bm25_scores or score > all_bm25_scores[idx]:
-                    all_bm25_scores[idx] = score
+        # 二、BM25检索部分
+        # 1. 问题分词并计算BM25分数
+        tokenized_query = self._tokenize(question)
+        bm25_scores = self.bm25.get_scores(tokenized_query)
         
-        # 获取top k的索引（倒序排列）
-        top_bm25_indices = np.argsort(list(all_bm25_scores.values()))[-self.config.bm25_top_k:][::-1]
-        top_bm25_indices = [list(all_bm25_scores.keys())[i] for i in top_bm25_indices]
-
-        # 对BM25分数进行归一化处理
-        bm25_scores = [all_bm25_scores[idx] for idx in top_bm25_indices]
-        if bm25_scores:  # 确保有分数可以归一化
+        # 2. 获取top k的BM25结果
+        top_bm25_indices = np.argsort(bm25_scores)[-self.config.bm25_top_k:][::-1]
+        top_bm25_scores = [bm25_scores[idx] for idx in top_bm25_indices]
+        
+        # 3. 对BM25分数进行归一化处理
+        normalized_bm25_scores = []
+        if top_bm25_scores:
             # 计算均值和标准差
-            mean_score = np.mean(bm25_scores)
-            std_score = np.std(bm25_scores) + 1e-9  # 避免除以0
+            mean_score = np.mean(top_bm25_scores)
+            std_score = np.std(top_bm25_scores) + 1e-9  # 避免除以0
             
             # 使用Logistic归一化
-            normalized_bm25_scores = []
-            for score in bm25_scores:
-                # 先进行Z-score标准化
-                z_score = (score - mean_score) / std_score
-                # 然后应用Sigmoid函数
-                logistic_score = 1 / (1 + np.exp(-z_score))
+            for score in top_bm25_scores:
+                z_score = (score - mean_score) / std_score  # Z-score标准化
+                logistic_score = 1 / (1 + np.exp(-z_score))  # Sigmoid函数
                 normalized_bm25_scores.append(logistic_score)
-        else:
-            normalized_bm25_scores = []
-
-        # 对BM25检索结果进行阈值过滤
+        
+        # 4. 构建BM25检索结果并应用权重
         filtered_bm25_results = []
         for idx, norm_score in zip(top_bm25_indices, normalized_bm25_scores):
-            if norm_score >= self.config.bm25_similarity_threshold:  # 使用统一的相似度阈值
+            if norm_score >= self.config.bm25_similarity_threshold:
                 doc = Document(
                     page_content=self.bm25_docs[idx],
                     metadata=self.doc_metadata[idx]
                 )
+                # 应用BM25检索权重
+                weighted_score = norm_score * bm25_weight
                 filtered_bm25_results.append({
                     "doc": doc,
-                    "score": norm_score,  # 使用归一化后的分数
-                    "raw_score": norm_score,
+                    "score": weighted_score,  # 应用权重后的分数
+                    "raw_score": norm_score,  # 原始分数
                     "type": "bm25",
                     "source": doc.metadata.get("source", "unknown")
                 })
-                # logger.info(f"🔍 BM25检索结果: {doc.metadata['source']} - 原始分数: {all_bm25_scores[idx]:.4f} - 归一化分数: {norm_score:.4f}")
 
-        # 合并过滤后的结果
+        # 合并两种检索的结果
         results = filtered_vector_results + filtered_bm25_results
-
         logger.info(f"📚 混合检索后得到{len(results)}篇文档")
         return results
     
     def _determine_retrieval_weights(self, question: str) -> Tuple[float, float]:
         """动态确定检索策略权重
+        
+        根据问题的特征和领域知识动态调整向量检索和BM25检索的权重，
+        提高混合检索的适用性和准确性
         
         :param question: 用户问题
         :return: (向量检索权重, BM25检索权重)
@@ -422,51 +358,104 @@ class RAGSystem:
         default_bm25 = 0.5
         
         try:
-            # 1. 检测问题类型特征
+            # 1. 问题类型特征分析
+            # 事实型问题特征词（偏向BM25）- 精确匹配更有效
+            factual_indicators = [
+                '什么是', '定义', '如何', '怎么', '哪些', '谁', '何时', '为什么', 
+                '多少', '数据', '标准是', '要求是', '列举', '步骤', '方法',
+                '流程', '规定', '地点', '时间', '哪里', '规范', '条例'
+            ]
             
-            # 事实型问题特征词（偏向BM25）
-            factual_indicators = ['什么是', '定义', '如何', '怎么', '哪些', 
-                               '谁', '何时', '为什么', '多少', '数据',
-                               '标准是', '要求是']
+            # 概念型问题特征词（偏向向量检索）- 语义理解更有效
+            conceptual_indicators = [
+                '解释', '分析', '评价', '比较', '区别', '关系', '影响', '原理', 
+                '机制', '思考', '可能', '建议', '预测', '推测', '评估', '优缺点',
+                '意义', '价值', '联系', '看法', '观点', '理解', '认为'
+            ]
             
-            # 概念型问题特征词（偏向向量检索）
-            conceptual_indicators = ['解释', '分析', '评价', '比较', '区别',
-                                  '关系', '影响', '原理', '机制', '思考',
-                                  '可能', '建议', '预测', '推测']
-                               
-            # 计算各类特征出现次数
+            # 化工安全特定术语（增加领域特异性）
+            chemical_safety_terms = [
+                '化学品', '易燃', '易爆', '有毒', '腐蚀', '危险', '安全', '防护', 
+                '事故', '泄漏', '爆炸', '火灾', '中毒', '应急', '处置', '风险',
+                '危害', '防范', '措施', '操作', '反应', '物质', '气体', '液体', 
+                '固体', '浓度', '温度', '压力', '储存', '运输'
+            ]
+            
+            # 2. 多维度特征提取
+            # 计算问题类型特征出现次数和强度
             factual_count = sum(1 for term in factual_indicators if term in question)
             conceptual_count = sum(1 for term in conceptual_indicators if term in question)
+            domain_term_count = sum(1 for term in chemical_safety_terms if term in question)
             
-            # 2. 考虑问题长度因素
-            # 较短问题通常是直接查询，适合关键词匹配
-            # 较长问题可能是复杂概念，适合语义匹配
+            # 问题长度因素（较长问题通常偏向语义理解）
             query_length = len(question)
             length_factor = min(1.0, query_length / 50)  # 标准化长度因素
             
-            # 3. 确定最终权重
+            # 问题复杂度因素（句子结构复杂度）
+            sentence_count = len([s for s in re.split(r'[。？！.?!]', question) if s.strip()])
+            complexity_factor = min(1.0, sentence_count / 3)  # 标准化复杂度因素
+            
+            # 数字和符号数量（更多数字通常偏向精确匹配）
+            digit_count = sum(1 for c in question if c.isdigit())
+            digit_factor = min(1.0, digit_count / 5)
+            
+            # 3. 特征整合与权重计算
+            vector_weight = default_vector
+            bm25_weight = default_bm25
+            
+            # 基础权重调整
             if factual_count > conceptual_count:
                 # 事实型问题：增加BM25权重
-                bm25_weight = 0.6 + 0.1 * min(factual_count, 3)
-                vector_weight = 1.0 - bm25_weight
+                bm25_base = 0.6 + 0.1 * min(factual_count, 3)
             elif conceptual_count > factual_count:
                 # 概念型问题：增加向量权重
-                vector_weight = 0.6 + 0.1 * min(conceptual_count, 3) + 0.1 * length_factor
-                bm25_weight = 1.0 - vector_weight
+                vector_base = 0.6 + 0.1 * min(conceptual_count, 3)
+                bm25_base = 1.0 - vector_base
             else:
                 # 混合类型问题：根据长度微调
-                vector_weight = default_vector + 0.1 * length_factor
+                vector_base = default_vector
+                bm25_base = default_bm25
+            
+            # 应用修正因子
+            vector_modifiers = [
+                0.1 * length_factor,         # 问题长度修正
+                0.1 * complexity_factor,     # 复杂度修正
+                -0.1 * digit_factor,         # 数字因素修正(减少向量权重)
+                0.05 * min(domain_term_count, 4) / 4  # 领域术语修正
+            ]
+            
+            # 计算最终权重
+            if factual_count > conceptual_count:
+                # 事实型问题
+                bm25_weight = bm25_base
+                # 对BM25权重应用小幅修正
+                for modifier in vector_modifiers:
+                    bm25_weight -= modifier / 2  # 减小修正因子影响
+                vector_weight = 1.0 - bm25_weight
+            else:
+                # 概念型问题或混合型问题
+                vector_weight = vector_base
+                # 应用完整修正因子
+                for modifier in vector_modifiers:
+                    vector_weight += modifier
                 bm25_weight = 1.0 - vector_weight
-                
-            # 确保权重相加为1
+            
+            # 边界约束
+            vector_weight = max(0.2, min(0.8, vector_weight))  # 限制在0.2-0.8范围内
+            bm25_weight = 1.0 - vector_weight
+            
+            # 确保权重和为1
             total = vector_weight + bm25_weight
-            return vector_weight/total, bm25_weight/total
+            normalized_vector = vector_weight / total
+            normalized_bm25 = bm25_weight / total
+            
+            logger.debug(f"问题特征分析: 事实型={factual_count}, 概念型={conceptual_count}, 领域术语={domain_term_count}, 长度={query_length}, 复杂度={sentence_count}, 数字={digit_count}")
+            
+            return normalized_vector, normalized_bm25
             
         except Exception as e:
             logger.warning(f"⚠️ 动态权重计算失败: {str(e)}")
             return default_vector, default_bm25
-
-
 
     def _rerank_documents(self, results: List[Dict], question: str) -> List[Dict]:
         """使用重排序模型优化检索结果
@@ -504,11 +493,15 @@ class RAGSystem:
                         return_tensors="pt"
                     )
                     
+                    # 确保张量在正确的设备上
+                    if self.using_gpu and torch.cuda.is_available():
+                        batch_inputs = {k: v.to("cuda") for k, v in batch_inputs.items()}
+                    
                     # 模型推理
                     with torch.no_grad():
                         batch_outputs = self.rerank_model(**batch_inputs)
                         # 使用sigmoid转换分数
-                        batch_scores = torch.sigmoid(batch_outputs.logits).squeeze().tolist()
+                        batch_scores = torch.sigmoid(batch_outputs.logits).squeeze().cpu().tolist()
                         
                         # 确保batch_scores是列表
                         if not isinstance(batch_scores, list):
@@ -636,33 +629,54 @@ class RAGSystem:
             logger.warning(f"文档相似度计算失败: {str(e)}")
             return 0.0
 
-    def _retrieve_documents(self, question: str) -> Tuple[List[Document], List[Dict]]:
+    def _retrieve_documents(self, question: str, use_rerank: bool = True) -> Tuple[List[Document], List[Dict]]:
         """完整检索流程
 
         :param question: 用户问题
+        :param use_rerank: 是否使用重排序，默认为True
         :return: (文档列表, 分数信息列表)
         """
         try:
+            # 开始计时
+            start_time = time.time()
+            
             # 混合检索
+            hybrid_start = time.time()
             raw_results = self._hybrid_retrieve(question)
+            hybrid_time = time.time() - hybrid_start
+            
             if not raw_results:
                 logger.warning("混合检索未返回任何结果")
                 return [], []
 
-            # 直接重排序
-            try:
-                reranked = self._rerank_documents(raw_results, question)
-            except Exception as e:
-                logger.error(f"重排序完全失败，使用原始结果: {str(e)}")
-                # 确保每个结果都有必要的字段
+            # 重排序(可跳过)
+            rerank_time = 0
+            if use_rerank:
+                rerank_start = time.time()
+                try:
+                    reranked = self._rerank_documents(raw_results, question)
+                except Exception as e:
+                    logger.error(f"重排序完全失败，使用原始结果: {str(e)}")
+                    # 确保每个结果都有必要的字段
+                    for res in raw_results:
+                        if "final_score" not in res:
+                            res["final_score"] = res["score"]
+                        if "rerank_score" not in res:
+                            res["rerank_score"] = res["score"]
+                    reranked = sorted(raw_results, key=lambda x: x["score"], reverse=True)
+                rerank_time = time.time() - rerank_start
+            else:
+                # 如果不使用重排序，直接使用混合检索结果
+                logger.info("⏩ 跳过重排序步骤，直接使用混合检索结果")
+                # 确保results有所需字段
                 for res in raw_results:
-                    if "final_score" not in res:
-                        res["final_score"] = res["score"]
-                    if "rerank_score" not in res:
-                        res["rerank_score"] = res["score"]
+                    res["final_score"] = res["score"]  # 使用原始分数作为最终分数
+                    res["rerank_score"] = res["score"]  # 设置相同的rerank_score值
+                    res["original_score"] = res["score"]  # 保存原始分数
                 reranked = sorted(raw_results, key=lambda x: x["score"], reverse=True)
 
             # 根据阈值过滤结果
+            filter_start = time.time()
             try:
                 final_results = [
                     res for res in reranked
@@ -677,9 +691,17 @@ class RAGSystem:
             except Exception as e:
                 logger.error(f"结果过滤失败，使用前N个结果: {str(e)}")
                 final_results = reranked[:min(len(reranked), self.config.final_top_k)]
+            filter_time = time.time() - filter_start
 
-            # 输出最终分数信息
+            # 输出最终分数信息和时间统计
+            total_time = time.time() - start_time
             logger.info(f"📊 最终文档数目:{len(final_results)}篇")
+            
+            # 根据是否使用重排序输出不同的日志
+            if use_rerank:
+                logger.info(f"⏱️ 检索耗时统计: 总计 {total_time:.3f}秒 | 混合检索: {hybrid_time:.3f}秒 | 重排序: {rerank_time:.3f}秒 | 过滤: {filter_time:.3f}秒")
+            else:
+                logger.info(f"⏱️ 检索耗时统计: 总计 {total_time:.3f}秒 | 混合检索: {hybrid_time:.3f}秒 | 过滤: {filter_time:.3f}秒 (跳过重排序)")
 
             # 提取文档和分数信息
             docs = []
@@ -716,23 +738,34 @@ class RAGSystem:
             "你需要基于提供的参考资料，给出准确、专业且易于理解的回答。"
         )
         
-        # 思考过程指令
-        reasoning_instruction = (
-            "请按照以下步骤回答问题：\n"
-            "1. 仔细阅读并理解提供的参考资料\n"
-            "2. 分析问题中的关键信息和要求\n"
-            "3. 从参考资料中提取相关信息\n"
-            "4. 给出详细的推理过程\n"
-            "5. 总结并给出最终答案\n\n"
-            "如果参考资料不足以回答问题，请直接说明无法回答。"
+        # 详细工作指南
+        instruction = (
+            "工作指南：\n"
+            "1. 引用知识：回答必须基于检索到的参考资料内容，不要编造或臆测信息\n"
+            "2. 专业性：使用适当的化工安全术语，保持专业性\n"
+            "3. 可读性：将复杂概念解释得清晰易懂，避免过度使用专业术语\n"
+            "4. 结构性：回答应有清晰的结构，先概述要点，再详细展开\n"
+            "5. 引用来源：在回答中适当引用参考资料来源，可使用「根据XX文档」的形式\n"
+            "6. 知识边界：如参考资料不包含问题的答案，坦诚表明「参考资料不包含此信息」\n"
+        )
+        
+        # 思考过程指导
+        thinking_guide = (
+            "思考过程：\n"
+            "1. 仔细阅读参考资料，识别与问题相关的关键信息\n"
+            "2. 分析问题需求，确定回答框架\n"
+            "3. 组织相关信息，形成系统性回答\n"
+            "4. 确保回答准确、全面且符合化工安全领域专业标准\n"
         )
         
         if context:
             return (
                 "<|im_start|>system\n"
                 f"{system_role}\n"
-                f"{reasoning_instruction}\n"
+                f"{instruction}\n"
+                f"{thinking_guide}\n"
                 "参考资料：\n{context}\n"
+                "请根据以上参考资料回答用户问题。如果参考资料不足以回答，请明确指出。\n"
                 "<|im_end|>\n"
                 "<|im_start|>user\n"
                 "{question}\n"
@@ -742,7 +775,9 @@ class RAGSystem:
         else:
             return (
                 "<|im_start|>system\n"
-                f"你是一位经验丰富的化工安全领域专家，{cot_instruction}\n"
+                f"{system_role}\n"
+                f"{instruction}\n"
+                "注意：未找到与问题相关的参考资料，请基于化工安全领域的专业知识谨慎回答。\n"
                 "<|im_end|>\n"
                 "<|im_start|>user\n"
                 "{question}\n"
@@ -762,15 +797,28 @@ class RAGSystem:
         system_role = (
             "你是一位经验丰富的化工安全领域专家，具有深厚的专业知识和实践经验。"
             "你需要基于提供的参考资料和聊天历史，给出准确、专业且易于理解的回答。"
-            "请保持回答的连贯性和一致性，考虑之前的对话内容。"
+        )
+        
+        # 详细工作指南
+        instruction = (
+            "工作指南：\n"
+            "1. 引用知识：回答必须基于检索到的参考资料内容，不要编造或臆测信息\n"
+            "2. 专业性：使用适当的化工安全术语，保持专业性\n"
+            "3. 可读性：将复杂概念解释得清晰易懂，避免过度使用专业术语使回答难以理解\n"
+            "4. 连贯性：考虑对话历史，保持回答的一致性\n"
+            "5. 引用来源：在回答中适当引用参考资料来源，可使用「根据XX文档」的形式\n"
+            "6. 知识边界：如参考资料不包含问题的答案，坦诚表明「参考资料不包含此信息」\n"
         )
         
         # 构建系统提示部分
-        prompt = "<|im_start|>system\n" + system_role + "\n"
+        prompt = "<|im_start|>system\n" + system_role + "\n" + instruction + "\n"
         
         # 添加参考资料（如果有）
         if context:
             prompt += "参考资料：\n" + context[:self.config.max_context_length] + "\n"
+            prompt += "请根据以上参考资料回答用户问题。如果参考资料不足以回答，请明确指出。\n"
+        else:
+            prompt += "注意：未找到与问题相关的参考资料，请基于化工安全领域的专业知识谨慎回答。\n"
         
         prompt += "<|im_end|>\n"
         
@@ -815,7 +863,7 @@ class RAGSystem:
         if not current_question.strip():
             yield json.dumps({
                 "type": "error",
-                "data": "⚠️ 请输入有效问题"
+                "data": "请输入有效问题"
             }) + "\n"
             return
         
@@ -852,7 +900,7 @@ class RAGSystem:
                 context = ""
                 yield json.dumps({
                     "type": "error", 
-                    "data": "⚠️ 文档检索服务暂时不可用，将使用聊天历史回答..."
+                    "data": "文档检索服务暂时不可用，将使用聊天历史回答..."
                 }) + "\n"
             
             # 阶段2：构建多轮对话提示
@@ -872,14 +920,14 @@ class RAGSystem:
                 logger.error(f"流式生成中断: {str(e)}")
                 yield json.dumps({
                     "type": "error",
-                    "data": "\n⚠️ 生成过程发生意外中断，请刷新页面重试"
+                    "data": "\n生成过程发生意外中断，请刷新页面重试"
                 }) + "\n"
                 
         except Exception as e:
             logger.exception(f"多轮对话处理错误: {str(e)}")
             yield json.dumps({
                 "type": "error",
-                "data": "⚠️ 系统处理请求时发生严重错误，请联系管理员"
+                "data": " 系统处理请求时发生严重错误，请联系管理员"
             }) + "\n"
             
     def stream_query_model_with_history(self, session_id: str, current_question: str, 

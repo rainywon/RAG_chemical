@@ -15,6 +15,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple, Union
+import argparse
 
 # 添加父目录到路径，以便导入项目模块
 parent_dir = str(Path(__file__).resolve().parent.parent)
@@ -36,7 +37,7 @@ root_dir = Path(__file__).resolve().parent.parent
 
 # 配置文件路径
 TEST_DATA_PATH = root_dir / "evaluate" / "test_data" / "retrieval_test_data.json"
-RESULT_PATH = root_dir / "evaluate" / "results" / "retrieval_results.json"
+RESULT_PATH = root_dir / "evaluate" / "results" / "retrieval_results_solo.json"
 # 详细记录目录
 DETAIL_DIR = root_dir / "evaluate" / "results" / "retrieval_details"
 
@@ -264,7 +265,8 @@ class RetrievalEvaluator:
     
     def save_query_details(self, idx: int, question: str, 
                           retrieved_paths: List[str], relevant_docs: List[str],
-                          hit_scores: Dict[str, float], mrr_score: float):
+                          hit_scores: Dict[str, float], mrr_score: float,
+                          use_rerank: bool = True):
         """
         保存单个查询的详细信息到文件
         
@@ -275,10 +277,12 @@ class RetrievalEvaluator:
             relevant_docs: 真实相关文档列表
             hit_scores: 各k值的命中率分数
             mrr_score: MRR分数
+            use_rerank: 是否使用了重排序
         """
         # 构建文件名，包含索引和时间戳
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"retrieval_{idx+1:03d}_{timestamp}.txt"
+        rerank_flag = "with_rerank" if use_rerank else "no_rerank"
+        filename = f"retrieval_{idx+1:03d}_{rerank_flag}_{timestamp}.txt"
         filepath = Path(DETAIL_DIR) / filename
         
         try:
@@ -286,6 +290,7 @@ class RetrievalEvaluator:
                 # 写入问题和分数
                 f.write(f"查询索引: {idx+1}\n")
                 f.write(f"时间戳: {timestamp}\n")
+                f.write(f"使用重排序: {'是' if use_rerank else '否'}\n")
                 f.write(f"{'='*80}\n\n")
                 
                 f.write(f"问题: {question}\n\n")
@@ -315,20 +320,21 @@ class RetrievalEvaluator:
         except Exception as e:
             logger.error(f"保存查询详情失败: {str(e)}")
     
-    def evaluate_single_query(self, question: str, relevant_docs: List[str]) -> Dict[str, Any]:
+    def evaluate_single_query(self, question: str, relevant_docs: List[str], use_rerank: bool = True) -> Dict[str, Any]:
         """
         评估单个查询的检索性能
         
         Args:
             question: 问题
             relevant_docs: 真实相关文档列表
+            use_rerank: 是否使用重排序
             
         Returns:
             包含评估分数的字典
         """
         try:
-            # 使用RAG系统进行检索
-            retrieved_docs, _ = self.rag_system._retrieve_documents(question)
+            # 使用RAG系统进行检索，传入use_rerank参数
+            retrieved_docs, _ = self.rag_system._retrieve_documents(question, use_rerank=use_rerank)
             
             # 获取检索文档路径
             retrieved_paths = [doc.metadata.get("source", "") for doc in retrieved_docs]
@@ -356,13 +362,14 @@ class RetrievalEvaluator:
             results["mrr"] = 0.0
             return results
     
-    def _process_single_query(self, idx: int, item: Dict[str, Any], total_queries: int) -> Dict[str, Any]:
+    def _process_single_query(self, idx: int, item: Dict[str, Any], total_queries: int, use_rerank: bool = True) -> Dict[str, Any]:
         """处理单个查询，包括评估和记录结果
         
         Args:
             idx: 查询索引
             item: 查询数据项
             total_queries: 总查询数
+            use_rerank: 是否使用重排序
             
         Returns:
             查询结果
@@ -370,10 +377,11 @@ class RetrievalEvaluator:
         question = item["question"]
         relevant_docs = item["relevant_docs"]
         
-        logger.info(f"【查询 {idx+1}/{total_queries}】: {question}")
+        rerank_status = "使用重排序" if use_rerank else "不使用重排序"
+        logger.info(f"【查询 {idx+1}/{total_queries}】({rerank_status}): {question}")
         
         # 评估当前问题
-        scores = self.evaluate_single_query(question, relevant_docs)
+        scores = self.evaluate_single_query(question, relevant_docs, use_rerank=use_rerank)
         
         # 打印评估分数
         for k in self.k_values:
@@ -388,14 +396,16 @@ class RetrievalEvaluator:
             scores['retrieved_paths'],
             relevant_docs,
             hit_scores,
-            scores['mrr']
+            scores['mrr'],
+            use_rerank
         )
         
         # 创建结果记录
         result_item = {
             "question": question,
             "relevant_docs": relevant_docs,
-            "mrr": scores["mrr"]
+            "mrr": scores["mrr"],
+            "use_rerank": use_rerank
         }
         # 添加各k值的hit@k
         for k in self.k_values:
@@ -406,6 +416,7 @@ class RetrievalEvaluator:
             "query_index": idx + 1,
             "query": question,
             "relevant_docs": relevant_docs,
+            "use_rerank": use_rerank,
             "retrieved_docs": [
                 {
                     "rank": i+1, 
@@ -424,6 +435,231 @@ class RetrievalEvaluator:
         self.evaluation_records.append(record)
         
         return result_item
+
+    def _save_comparison_results(self, all_results_with_rerank: List[Dict[str, Any]], all_results_no_rerank: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """保存对比评估结果
+        
+        Args:
+            all_results_with_rerank: 使用重排序的所有查询结果
+            all_results_no_rerank: 不使用重排序的所有查询结果
+            
+        Returns:
+            汇总评估结果
+        """
+        # 创建结果DataFrame
+        with_rerank_df = pd.DataFrame(all_results_with_rerank)
+        no_rerank_df = pd.DataFrame(all_results_no_rerank)
+        
+        # 计算平均指标 - 使用重排序
+        with_rerank_hit_rates = {}
+        for k in self.k_values:
+            with_rerank_hit_rates[f"hit@{k}"] = float(with_rerank_df[f"hit@{k}"].mean())
+        with_rerank_mrr = float(with_rerank_df["mrr"].mean())
+        
+        # 计算平均指标 - 不使用重排序
+        no_rerank_hit_rates = {}
+        for k in self.k_values:
+            no_rerank_hit_rates[f"hit@{k}"] = float(no_rerank_df[f"hit@{k}"].mean())
+        no_rerank_mrr = float(no_rerank_df["mrr"].mean())
+        
+        # 组织结果
+        results = {
+            "with_rerank": {
+                "hit_rate": with_rerank_hit_rates,
+                "mrr": with_rerank_mrr,
+                "details": all_results_with_rerank
+            },
+            "no_rerank": {
+                "hit_rate": no_rerank_hit_rates,
+                "mrr": no_rerank_mrr,
+                "details": all_results_no_rerank
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # 保存结果到文件
+        comparison_result_path = self.result_dir / "retrieval_comparison_results.json"
+        with open(comparison_result_path, 'w', encoding='utf-8') as f:
+            numpy_safe_dump(results, f, ensure_ascii=False, indent=2)
+        
+        logger.info(f"对比评估结果已保存至: {comparison_result_path}")
+        
+        # 生成并保存对比报告
+        report = self._generate_comparison_report(results)
+        report_path = self.result_dir / "retrieval_comparison_report.md"
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(report)
+        
+        logger.info(f"对比评估报告已保存至: {report_path}")
+        
+        # 打印评估结果概要
+        logger.info(f"对比评估结果概要:")
+        logger.info(f"【使用重排序】:")
+        for k in self.k_values:
+            logger.info(f"- 命中率(Hit@{k}): {with_rerank_hit_rates[f'hit@{k}']:.4f}")
+        logger.info(f"- 平均倒数排名(MRR): {with_rerank_mrr:.4f}")
+        
+        logger.info(f"【不使用重排序】:")
+        for k in self.k_values:
+            logger.info(f"- 命中率(Hit@{k}): {no_rerank_hit_rates[f'hit@{k}']:.4f}")
+        logger.info(f"- 平均倒数排名(MRR): {no_rerank_mrr:.4f}")
+        
+        return results
+
+    def _generate_comparison_report(self, results: Dict[str, Any]) -> str:
+        """生成对比评估报告
+        
+        Args:
+            results: 对比评估结果
+            
+        Returns:
+            Markdown格式报告文本
+        """
+        now = datetime.now()
+        report = []
+        
+        # 报告标题
+        report.append("# RAG系统检索模块对比评估报告")
+        report.append(f"生成时间：{now.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        
+        # 对比结果表格
+        report.append("## 1. 对比评估结果")
+        report.append("\n### 检索效果比较\n")
+        report.append("| 指标 | 使用重排序 | 不使用重排序 | 差异 |")
+        report.append("|------|------------|--------------|------|")
+        
+        with_rerank = results["with_rerank"]
+        no_rerank = results["no_rerank"]
+        
+        # 对比各K值的命中率
+        for k in self.k_values:
+            with_score = with_rerank["hit_rate"][f"hit@{k}"]
+            no_score = no_rerank["hit_rate"][f"hit@{k}"]
+            diff = with_score - no_score
+            diff_str = f"{diff:.4f}" if diff >= 0 else f"{diff:.4f}"
+            report.append(f"| hit@{k} | {with_score:.4f} | {no_score:.4f} | {diff_str} |")
+        
+        # 对比MRR指标
+        with_mrr = with_rerank["mrr"]
+        no_mrr = no_rerank["mrr"]
+        mrr_diff = with_mrr - no_mrr
+        mrr_diff_str = f"{mrr_diff:.4f}" if mrr_diff >= 0 else f"{mrr_diff:.4f}"
+        report.append(f"| MRR | {with_mrr:.4f} | {no_mrr:.4f} | {mrr_diff_str} |")
+        
+        # 2. 性能分析
+        report.append("\n## 2. 性能分析\n")
+        
+        # 分析重排序的有效性
+        if with_mrr > no_mrr:
+            report.append("### 重排序优势分析\n")
+            report.append("重排序在本次评估中显示出了优势，具体表现在：\n")
+            # 列举优势点
+            advantages = []
+            for k in self.k_values:
+                if with_rerank["hit_rate"][f"hit@{k}"] > no_rerank["hit_rate"][f"hit@{k}"]:
+                    advantages.append(f"- **Hit@{k}** 指标提升了 {(with_rerank['hit_rate'][f'hit@{k}'] - no_rerank['hit_rate'][f'hit@{k}']):.4f}")
+            
+            if advantages:
+                report.append("\n".join(advantages))
+                report.append("\n重排序能够有效提高检索结果的相关性排序，尤其是对于复杂查询。\n")
+            else:
+                report.append("虽然总体MRR有所提升，但在命中率方面差异不显著。\n")
+        else:
+            report.append("### 重排序效果分析\n")
+            report.append("在本次评估中，重排序未显示出明显优势，可能的原因包括：\n")
+            report.append("1. 混合检索已能很好地识别相关文档")
+            report.append("2. 测试集特性可能不需要额外的相关性排序")
+            report.append("3. 重排序模型可能需要针对当前领域进行调优\n")
+        
+        # 效率分析
+        report.append("### 效率分析\n")
+        report.append("重排序虽然可能提高检索质量，但也带来了额外的计算开销。在实际应用中，需要根据具体场景在效率和质量之间做出平衡。\n")
+        
+        # 3. 建议
+        report.append("## 3. 优化建议\n")
+        
+        if with_mrr > no_mrr:
+            report.append("1. 保留重排序模块，但可考虑减少重排序的文档数量以提高效率")
+            report.append("2. 探索更轻量级的重排序模型或方法")
+            report.append("3. 对特定类型的查询选择性启用重排序")
+        else:
+            report.append("1. 可以考虑在当前应用场景下移除重排序步骤，减少延迟")
+            report.append("2. 进一步优化混合检索的权重配置")
+            report.append("3. 探索更适合当前领域的重排序模型")
+        
+        return "\n".join(report)
+    
+    def run_comparison_evaluation(self, test_data_path: Optional[Union[str, Path]] = None) -> Dict[str, Any]:
+        """
+        运行对比评估流程，对比使用和不使用重排序的检索效果
+        
+        Args:
+            test_data_path: 测试数据路径
+            
+        Returns:
+            对比评估结果
+        """
+        if test_data_path is None:
+            test_data_path = TEST_DATA_PATH
+            
+        logger.info("开始对比评估检索模块性能...")
+        
+        # 清空详细记录目录
+        logger.info("清空详细记录目录...")
+        clear_directory(DETAIL_DIR)
+        
+        try:
+            # 加载测试数据
+            test_data = self._load_test_data(test_data_path)
+            
+            # 重置评估记录
+            self.evaluation_records = []
+            
+            # 先评估使用重排序的情况
+            logger.info("\n" + "="*50)
+            logger.info("第1阶段: 评估【使用重排序】的检索效果")
+            logger.info("="*50)
+            
+            all_results_with_rerank = []
+            for idx, item in enumerate(test_data):
+                result_item = self._process_single_query(idx, item, len(test_data), use_rerank=True)
+                all_results_with_rerank.append(result_item)
+            
+            # 清空评估记录，重新评估不使用重排序的情况
+            prev_records = self.evaluation_records
+            self.evaluation_records = []
+            
+            logger.info("\n" + "="*50)
+            logger.info("第2阶段: 评估【不使用重排序】的检索效果")
+            logger.info("="*50)
+            
+            all_results_no_rerank = []
+            for idx, item in enumerate(test_data):
+                result_item = self._process_single_query(idx, item, len(test_data), use_rerank=False)
+                all_results_no_rerank.append(result_item)
+            
+            # 合并评估记录
+            self.evaluation_records = prev_records + self.evaluation_records
+            
+            # 保存和返回对比结果
+            return self._save_comparison_results(all_results_with_rerank, all_results_no_rerank)
+            
+        except Exception as e:
+            logger.error(f"对比评估失败: {str(e)}")
+            import traceback
+            trace = traceback.format_exc()
+            logger.error(trace)
+            
+            # 初始化失败结果
+            empty_hit_rates = {}
+            for k in self.k_values:
+                empty_hit_rates[f"hit@{k}"] = 0.0
+            
+            return {
+                "error": str(e),
+                "with_rerank": {"hit_rate": empty_hit_rates, "mrr": 0.0},
+                "no_rerank": {"hit_rate": empty_hit_rates, "mrr": 0.0}
+            }
     
     def _load_test_data(self, test_data_path: Union[str, Path]) -> List[Dict[str, Any]]:
         """加载测试数据
@@ -556,6 +792,23 @@ class RetrievalEvaluator:
 
 
 if __name__ == "__main__":
+    # 创建命令行解析器
+    parser = argparse.ArgumentParser(description="评估RAG检索模块性能")
+    parser.add_argument(
+        "--mode", 
+        choices=["standard", "comparison"], 
+        default="comparison",
+        help="评估模式：standard=标准评估(使用重排序)，comparison=对比评估(对比使用和不使用重排序)，默认为对比评估"
+    )
+    parser.add_argument(
+        "--test_data", 
+        type=str,
+        help="指定测试数据文件路径，默认使用配置中的测试数据"
+    )
+    
+    # 解析命令行参数
+    args = parser.parse_args()
+    
     try:
         # 加载配置
         config_path = Path(parent_dir) / "config.py"
@@ -564,10 +817,15 @@ if __name__ == "__main__":
             sys.exit(1)
             
         config = Config()
-        
-        # 运行评估
         evaluator = RetrievalEvaluator(config)
-        evaluator.run_evaluation()
+        
+        # 根据模式运行相应的评估
+        if args.mode == "standard":
+            logger.info("运行标准评估模式（使用重排序）...")
+            evaluator.run_evaluation(args.test_data)
+        else:
+            logger.info("运行对比评估模式（比较使用和不使用重排序）...")
+            evaluator.run_comparison_evaluation(args.test_data)
         
     except Exception as e:
         logger.exception(f"评估过程发生错误: {str(e)}")

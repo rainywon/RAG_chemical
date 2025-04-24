@@ -1,0 +1,2449 @@
+{
+  "with_rerank": {
+    "hit_rate": {
+      "hit@1": 0.6039603960396039,
+      "hit@3": 0.801980198019802,
+      "hit@5": 0.8514851485148515,
+      "hit@10": 0.900990099009901
+    },
+    "mrr": 0.706871758604432,
+    "details": [
+      {
+        "question": "缠绕式提升机的安全检测项目包括哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1015—2023]煤矿在用缠绕式提升机系统安全检测检验规范.xlsx"
+        ],
+        "mrr": 0.3333333333333333,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "提升机钢丝绳的报废标准是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1015—2023]煤矿在用缠绕式提升机系统安全检测检验规范.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "缠绕式提升机的电控系统需要满足哪些安全要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1015—2023]煤矿在用缠绕式提升机系统安全检测检验规范.xlsx"
+        ],
+        "mrr": 0.3333333333333333,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "有哪些常用的瓦斯涌出量预测方法？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1018—2006]矿井瓦斯涌出量预测方法.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "影响矿井瓦斯涌出量预测精度的因素有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1018—2006]矿井瓦斯涌出量预测方法.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "煤矿井下粉尘的危害主要体现在哪些方面？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1020—2021]煤矿井下粉尘综合防治技术规范.xlsx"
+        ],
+        "mrr": 0.3333333333333333,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "煤矿井下粉尘防治需要采用哪些技术？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1020—2021]煤矿井下粉尘综合防治技术规范.xlsx"
+        ],
+        "mrr": 0.25,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "粉尘监测系统在煤矿中如何部署？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1020—2021]煤矿井下粉尘综合防治技术规范.xlsx"
+        ],
+        "mrr": 0.14285714285714285,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "高压喷雾降尘技术的主要原理是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1021—2006]煤矿采掘工作面高压喷雾降尘技术规范.xlsx"
+        ],
+        "mrr": 0.3333333333333333,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "采掘工作面喷雾系统应满足哪些布置要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1021—2006]煤矿采掘工作面高压喷雾降尘技术规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "矿井密闭的设置应满足哪些技术要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1044—2007]矿井密闭防灭火技术规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "防灭火密闭墙体应具备哪些性能？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1044—2007]矿井密闭防灭火技术规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "煤尘爆炸性鉴定的程序有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1045—2007]煤尘爆炸性鉴定规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "影响煤尘爆炸性的关键因素是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1045—2007]煤尘爆炸性鉴定规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "煤矿建设项目应进行哪些安全审核？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1049—2018]煤矿建设项目安全审核基本要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "安全审核过程中常见的问题有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1049—2018]煤矿建设项目安全审核基本要求.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "煤矿工人常用的个体防护用品包括哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1051—2008]煤矿职业安全卫生个体防护用品配备标准.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "防护用品的配备标准应如何确定？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1051—2008]煤矿职业安全卫生个体防护用品配备标准.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "矿用CO₂传感器需满足哪些通用技术条件？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1052—2008]矿用二氧化碳传感器通用技术条件.xlsx"
+        ],
+        "mrr": 0.16666666666666666,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "传感器的检测精度与稳定性要求是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1052—2008]矿用二氧化碳传感器通用技术条件.xlsx"
+        ],
+        "mrr": 0.2,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "煤矿用炸药爆炸后有毒气体如何测定？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1102—2014]煤矿用炸药爆炸后有毒气体量测定方法和判定规则.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "如何判定炸药爆炸后的毒性危害程度？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1102—2014]煤矿用炸药爆炸后有毒气体量测定方法和判定规则.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "煤矿井下静态破碎施工的技术流程有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1108—2014]煤矿井下静态破碎技术规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "静态破碎材料的技术要求包括哪些方面？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1108—2014]煤矿井下静态破碎技术规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "液压鼓式制动器安全检验的项目有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1109—2014]煤矿带式输送机用电力液压鼓式制动器安全检验规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "煤矿用液压制动器应符合哪些技术条件？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1109—2014]煤矿带式输送机用电力液压鼓式制动器安全检验规范.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "煤矿盘式制动装置的关键安全参数有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1110—2014]煤矿带式输送机用盘式制动装置安全检验规范.xlsx"
+        ],
+        "mrr": 0.3333333333333333,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "带式输送机制动装置的安全检验标准是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1110—2014]煤矿带式输送机用盘式制动装置安全检验规范.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "在用窄轨车辆连接链的检验要求有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1112—2014]煤矿在用窄轨车辆连接链检验规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "连接链使用过程中的安全隐患主要有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1112—2014]煤矿在用窄轨车辆连接链检验规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "如何对含硫化氢天然气井的公众危害程度进行分级？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2017—2008]含硫化氢天然气井公众危害程度分级方法.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "含硫化氢天然气井的公众安全防护距离应如何确定？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2018—2008]含硫化氢天然气井公众安全防护距离.xlsx"
+        ],
+        "mrr": 0.3333333333333333,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "竖井提升系统防坠器的安全性能应如何检测？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2019—2008]金属非金属矿山竖井提升系统防坠器安全性能检测检验规范.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "在用缠绕式提升机的安全检测检验规范包括哪些内容？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2020—2008]金属非金属矿山在用缠绕式提升机安全检测检验规范.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "金属非金属矿山主要负责人的安全生产考核内容有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2009—2006]金属非金属矿山主要负责人安全生产考核标准.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "金属非金属矿山安全管理人员的培训大纲主要包括哪些方面？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2010—2006]金属非金属矿山安全生产管理人员安全生产培训大纲.xlsx"
+        ],
+        "mrr": 0.2,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "石油天然气安全规程对作业过程有何基本要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2012—2007]石油天然气安全规程.xlsx"
+        ],
+        "mrr": 0.25,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "金属非金属地下矿山通风安全技术规范的核心内容有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2013.1—2008]金属非金属地下矿山通风安全技术规范.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "金属非金属地下矿山的通风管理应符合哪些规范？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2013.4—2008]金属非金属地下矿山通风技术规范 通风管理.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "矿山安全标志的逆反射技术条件包括哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2014—2008]逆反射型矿山安全标志技术条件和试验方法.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "矿用电梯的安全技术要求主要包括哪些方面？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2069—2019]矿用电梯安全技术要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "金属非金属地下矿山无轨运人车辆在安全方面需满足哪些技术条件？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2070—2019]金属非金属地下矿山无轨运人车辆安全技术要求.xlsx"
+        ],
+        "mrr": 0.125,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "老龄化海上固定式生产设施的主结构安全应如何进行评估？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2078—2020]老龄化海上固定式生产设施主结构安全评估导则.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "移动式空气压缩机在金属非金属矿山使用时应符合哪些安全检验规范？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2056—2016]金属非金属矿山在用空气压缩机安全检验规范  第2部分：移动式空气压缩机.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "在用货运架空索道在金属非金属矿山的安全检验项目有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2057—2016]金属非金属矿山在用货运架空索道安全检验规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "金属非金属矿山矿控电梯应如何进行安全检验？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2058—2016]金属非金属矿山在用矿控电梯安全检验规范.xlsx"
+        ],
+        "mrr": 0.3333333333333333,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "金属非金属地下矿山如何开展防治水安全技术工作？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2061—2018]金属非金属地下矿山防治水安全技术规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "超深竖井施工中有哪些安全技术规范需要遵循？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2062—2018]超深竖井施工安全技术规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "地下运矿车应满足哪些安全检验要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2065—2018]地下运矿车安全检验规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "金属非金属矿山提升系统日常检查应包含哪些内容？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2068—2019]金属非金属矿山提升系统日常检查和定期检测检验管理规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "立式圆筒形钢制焊接储罐的安全技术要求有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 3053—2015]立式圆筒形钢制焊接储罐安全技术规程.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "化工企业液化烃储罐区安全管理的规范内容包括哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 3059—2023]化工企业液化烃储罐区安全管理规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "烟花爆竹企业安全监控系统应符合哪些技术条件？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4101—2008]烟花爆竹企业安全监控系统通用技术条件.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "如何认定烟花爆竹中的烟火药？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4103—2008]烟花爆竹 烟火药认定方法.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "烟花爆竹中烟火药的安全性指标及测定方法有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4104—2008]烟花爆竹烟火药安全性指标及测定方法.xlsx"
+        ],
+        "mrr": 0.25,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "滚筒造粒机在烟花爆竹机械中有哪些技术要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4107—2008]烟花爆竹机械 滚筒造粒机.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "涂料生产企业在实施安全生产标准化时应遵循哪些指南？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 3040—2010]涂料生产企业安全生产标准化实施指南.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "车用乙醇汽油的储用应满足哪些安全规范？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 3045—2013]车用乙醇汽油储用安全规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "化学品作业场所的安全警示标志设置应符合哪些规范？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 3047—2013]化学品作业场所安全警示标志规范.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "液氯钢瓶充装自动化控制系统应满足哪些技术要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 3051—2015]液氯钢瓶充装自动化控制系统技术要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "卷烟制造企业在防尘防毒方面应采取哪些技术措施？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4245—2015]卷烟制造企业防尘防毒技术规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "电镀工艺中常见的职业危害有哪些及其防护技术要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4250—2015]电镀工艺防尘防毒技术规范.xlsx"
+        ],
+        "mrr": 0.14285714285714285,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "涂料生产企业应如何满足职业健康技术规范？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4254—2015]涂料生产企业职业健康技术规范.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "电镀生产中有哪些关键的安全操作规程？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 5202—2008]电镀生产安全操作规程.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "木材加工系统在防止粉尘爆炸方面应遵循哪些安全规范？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4228—2012]木材加工系统粉尘防爆安全规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "粮食立筒仓在防爆设计上需要考虑哪些技术要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4229—2013]粮食立筒仓防爆安全规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "粮食平房仓的粉尘防爆措施有哪些具体规定？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4230—2013]粮食平房仓粉尘防爆规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "日用化学产品企业在防尘防毒方面需采取哪些措施？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4238—2014]日用化学产品生产企业防尘防毒技术要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "纺织业工作场所应如何进行防尘防毒技术管理？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4242—2015]纺织业防尘防毒技术规范.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "化工企业液化烃储罐区的安全管理规范包含哪些方面？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 3059—2023]化工企业液化烃储罐区安全管理规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "焦炭单位产品能耗限定值对现有钢铁企业和独立焦化厂有什么要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "新建或改扩建焦炭生产设备的能耗准入值是多少？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "焦炭单位产品能耗先进值在不同电力折算系数下是多少？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "干熄焦蒸汽回收先进值的标准是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "焦炭单位产品能耗的统计范围包括哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "能源及主要耗能工质折算系数取值原则是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "焦炭单位产品能耗的计算方法是怎样的？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "焦炉炉龄校正系数如何确定？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "焦化工序有哪些节能措施？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "管理节能措施包括哪些内容？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "技术节能措施对焦炉建设有什么要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "结构节能措施有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 0.16666666666666666,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "地下矿用无轨轮胎式运矿车的定义是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21500—2008]地下矿用无轨轮胎式运矿车 安全要求.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "运矿车的制动系统由哪些部分构成？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21500—2008]地下矿用无轨轮胎式运矿车 安全要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "行车制动系统的作用是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21500—2008]地下矿用无轨轮胎式运矿车 安全要求.xlsx"
+        ],
+        "mrr": 0.3333333333333333,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "无极荧光灯的组成部分有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21554—2008]无极荧光灯 安全要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "放电腔的作用和特点是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21554—2008]无极荧光灯 安全要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "感应功率耦合器是如何工作的？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21554—2008]无极荧光灯 安全要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "机械固定装置的功能是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21554—2008]无极荧光灯 安全要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "内耦合无极荧光灯有什么特点？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21554—2008]无极荧光灯 安全要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "锁具安全通用技术条件有哪些主要内容？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21556—2008]锁具安全通用技术条件.xlsx"
+        ],
+        "mrr": 0.3333333333333333,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "教学仪器设备安全要求中对仪器和零部件有什么基本要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21748—2008]教学仪器设备安全要求 仪器和零部件的基本要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "锂原电池和蓄电池在运输中有哪些安全要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21966—2008]锂原电池和蓄电池在运输中的安全要求.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": true,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "建筑火灾逃生避难器材中逃生梯的安全要求是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21976.3—2012]建筑火灾逃生避难器材 第3部分逃生梯.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "逃生滑道的相关安全规范有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21976.4—2012]建筑火灾逃生避难器材 第4部分逃生滑道.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "应急逃生器的安全标准是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21976.5—2012]建筑火灾逃生避难器材 第5部分应急逃生器.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "逃生绳的安全性能要求有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21976.6—2012]建筑火灾逃生避难器材 第6部分逃生绳.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "过滤式消防自救呼吸器的安全要求是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21976.7—2012]建筑火灾逃生避难器材 第7部分：过滤式消防自救呼吸器.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "车用乙醇汽油调合组分油有什么技术要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 22030—2017]车用乙醇汽油调合组分油.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "火灾自动报警系统组件兼容性要求有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 22134—2008]火灾自动报警系统组件兼容性要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "吡嘧磺隆可湿性粉剂的相关安全规范是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 22170—2008]吡嘧磺隆可湿性粉剂.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": true,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      }
+    ]
+  },
+  "no_rerank": {
+    "hit_rate": {
+      "hit@1": 0.5346534653465347,
+      "hit@3": 0.693069306930693,
+      "hit@5": 0.7326732673267327,
+      "hit@10": 0.7920792079207921
+    },
+    "mrr": 0.6188590287600189,
+    "details": [
+      {
+        "question": "缠绕式提升机的安全检测项目包括哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1015—2023]煤矿在用缠绕式提升机系统安全检测检验规范.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "提升机钢丝绳的报废标准是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1015—2023]煤矿在用缠绕式提升机系统安全检测检验规范.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "缠绕式提升机的电控系统需要满足哪些安全要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1015—2023]煤矿在用缠绕式提升机系统安全检测检验规范.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "有哪些常用的瓦斯涌出量预测方法？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1018—2006]矿井瓦斯涌出量预测方法.xlsx"
+        ],
+        "mrr": 0.3333333333333333,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "影响矿井瓦斯涌出量预测精度的因素有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1018—2006]矿井瓦斯涌出量预测方法.xlsx"
+        ],
+        "mrr": 0.2,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "煤矿井下粉尘的危害主要体现在哪些方面？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1020—2021]煤矿井下粉尘综合防治技术规范.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "煤矿井下粉尘防治需要采用哪些技术？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1020—2021]煤矿井下粉尘综合防治技术规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "粉尘监测系统在煤矿中如何部署？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1020—2021]煤矿井下粉尘综合防治技术规范.xlsx"
+        ],
+        "mrr": 0.2,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "高压喷雾降尘技术的主要原理是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1021—2006]煤矿采掘工作面高压喷雾降尘技术规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "采掘工作面喷雾系统应满足哪些布置要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1021—2006]煤矿采掘工作面高压喷雾降尘技术规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "矿井密闭的设置应满足哪些技术要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1044—2007]矿井密闭防灭火技术规范.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "防灭火密闭墙体应具备哪些性能？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1044—2007]矿井密闭防灭火技术规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "煤尘爆炸性鉴定的程序有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1045—2007]煤尘爆炸性鉴定规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "影响煤尘爆炸性的关键因素是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1045—2007]煤尘爆炸性鉴定规范.xlsx"
+        ],
+        "mrr": 0.3333333333333333,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "煤矿建设项目应进行哪些安全审核？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1049—2018]煤矿建设项目安全审核基本要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "安全审核过程中常见的问题有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1049—2018]煤矿建设项目安全审核基本要求.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "煤矿工人常用的个体防护用品包括哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1051—2008]煤矿职业安全卫生个体防护用品配备标准.xlsx"
+        ],
+        "mrr": 0.125,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "防护用品的配备标准应如何确定？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1051—2008]煤矿职业安全卫生个体防护用品配备标准.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "矿用CO₂传感器需满足哪些通用技术条件？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1052—2008]矿用二氧化碳传感器通用技术条件.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "传感器的检测精度与稳定性要求是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1052—2008]矿用二氧化碳传感器通用技术条件.xlsx"
+        ],
+        "mrr": 0.14285714285714285,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "煤矿用炸药爆炸后有毒气体如何测定？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1102—2014]煤矿用炸药爆炸后有毒气体量测定方法和判定规则.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "如何判定炸药爆炸后的毒性危害程度？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1102—2014]煤矿用炸药爆炸后有毒气体量测定方法和判定规则.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "煤矿井下静态破碎施工的技术流程有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1108—2014]煤矿井下静态破碎技术规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "静态破碎材料的技术要求包括哪些方面？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1108—2014]煤矿井下静态破碎技术规范.xlsx"
+        ],
+        "mrr": 0.3333333333333333,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "液压鼓式制动器安全检验的项目有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1109—2014]煤矿带式输送机用电力液压鼓式制动器安全检验规范.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "煤矿用液压制动器应符合哪些技术条件？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1109—2014]煤矿带式输送机用电力液压鼓式制动器安全检验规范.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "煤矿盘式制动装置的关键安全参数有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1110—2014]煤矿带式输送机用盘式制动装置安全检验规范.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "带式输送机制动装置的安全检验标准是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1110—2014]煤矿带式输送机用盘式制动装置安全检验规范.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "在用窄轨车辆连接链的检验要求有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1112—2014]煤矿在用窄轨车辆连接链检验规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "连接链使用过程中的安全隐患主要有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 1112—2014]煤矿在用窄轨车辆连接链检验规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "如何对含硫化氢天然气井的公众危害程度进行分级？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2017—2008]含硫化氢天然气井公众危害程度分级方法.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "含硫化氢天然气井的公众安全防护距离应如何确定？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2018—2008]含硫化氢天然气井公众安全防护距离.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "竖井提升系统防坠器的安全性能应如何检测？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2019—2008]金属非金属矿山竖井提升系统防坠器安全性能检测检验规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "在用缠绕式提升机的安全检测检验规范包括哪些内容？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2020—2008]金属非金属矿山在用缠绕式提升机安全检测检验规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "金属非金属矿山主要负责人的安全生产考核内容有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2009—2006]金属非金属矿山主要负责人安全生产考核标准.xlsx"
+        ],
+        "mrr": 0.3333333333333333,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "金属非金属矿山安全管理人员的培训大纲主要包括哪些方面？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2010—2006]金属非金属矿山安全生产管理人员安全生产培训大纲.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "石油天然气安全规程对作业过程有何基本要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2012—2007]石油天然气安全规程.xlsx"
+        ],
+        "mrr": 0.3333333333333333,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "金属非金属地下矿山通风安全技术规范的核心内容有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2013.1—2008]金属非金属地下矿山通风安全技术规范.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "金属非金属地下矿山的通风管理应符合哪些规范？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2013.4—2008]金属非金属地下矿山通风技术规范 通风管理.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "矿山安全标志的逆反射技术条件包括哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2014—2008]逆反射型矿山安全标志技术条件和试验方法.xlsx"
+        ],
+        "mrr": 0.14285714285714285,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "矿用电梯的安全技术要求主要包括哪些方面？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2069—2019]矿用电梯安全技术要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "金属非金属地下矿山无轨运人车辆在安全方面需满足哪些技术条件？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2070—2019]金属非金属地下矿山无轨运人车辆安全技术要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "老龄化海上固定式生产设施的主结构安全应如何进行评估？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2078—2020]老龄化海上固定式生产设施主结构安全评估导则.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "移动式空气压缩机在金属非金属矿山使用时应符合哪些安全检验规范？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2056—2016]金属非金属矿山在用空气压缩机安全检验规范  第2部分：移动式空气压缩机.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "在用货运架空索道在金属非金属矿山的安全检验项目有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2057—2016]金属非金属矿山在用货运架空索道安全检验规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "金属非金属矿山矿控电梯应如何进行安全检验？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2058—2016]金属非金属矿山在用矿控电梯安全检验规范.xlsx"
+        ],
+        "mrr": 0.25,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "金属非金属地下矿山如何开展防治水安全技术工作？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2061—2018]金属非金属地下矿山防治水安全技术规范.xlsx"
+        ],
+        "mrr": 0.3333333333333333,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "超深竖井施工中有哪些安全技术规范需要遵循？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2062—2018]超深竖井施工安全技术规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "地下运矿车应满足哪些安全检验要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2065—2018]地下运矿车安全检验规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "金属非金属矿山提升系统日常检查应包含哪些内容？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 2068—2019]金属非金属矿山提升系统日常检查和定期检测检验管理规范.xlsx"
+        ],
+        "mrr": 0.125,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "立式圆筒形钢制焊接储罐的安全技术要求有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 3053—2015]立式圆筒形钢制焊接储罐安全技术规程.xlsx"
+        ],
+        "mrr": 0.2,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "化工企业液化烃储罐区安全管理的规范内容包括哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 3059—2023]化工企业液化烃储罐区安全管理规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "烟花爆竹企业安全监控系统应符合哪些技术条件？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4101—2008]烟花爆竹企业安全监控系统通用技术条件.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "如何认定烟花爆竹中的烟火药？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4103—2008]烟花爆竹 烟火药认定方法.xlsx"
+        ],
+        "mrr": 0.14285714285714285,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "烟花爆竹中烟火药的安全性指标及测定方法有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4104—2008]烟花爆竹烟火药安全性指标及测定方法.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "滚筒造粒机在烟花爆竹机械中有哪些技术要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4107—2008]烟花爆竹机械 滚筒造粒机.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "涂料生产企业在实施安全生产标准化时应遵循哪些指南？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 3040—2010]涂料生产企业安全生产标准化实施指南.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "车用乙醇汽油的储用应满足哪些安全规范？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 3045—2013]车用乙醇汽油储用安全规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "化学品作业场所的安全警示标志设置应符合哪些规范？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 3047—2013]化学品作业场所安全警示标志规范.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "液氯钢瓶充装自动化控制系统应满足哪些技术要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 3051—2015]液氯钢瓶充装自动化控制系统技术要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "卷烟制造企业在防尘防毒方面应采取哪些技术措施？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4245—2015]卷烟制造企业防尘防毒技术规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "电镀工艺中常见的职业危害有哪些及其防护技术要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4250—2015]电镀工艺防尘防毒技术规范.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "涂料生产企业应如何满足职业健康技术规范？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4254—2015]涂料生产企业职业健康技术规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "电镀生产中有哪些关键的安全操作规程？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 5202—2008]电镀生产安全操作规程.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "木材加工系统在防止粉尘爆炸方面应遵循哪些安全规范？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4228—2012]木材加工系统粉尘防爆安全规范.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "粮食立筒仓在防爆设计上需要考虑哪些技术要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4229—2013]粮食立筒仓防爆安全规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "粮食平房仓的粉尘防爆措施有哪些具体规定？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4230—2013]粮食平房仓粉尘防爆规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "日用化学产品企业在防尘防毒方面需采取哪些措施？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4238—2014]日用化学产品生产企业防尘防毒技术要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "纺织业工作场所应如何进行防尘防毒技术管理？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 4242—2015]纺织业防尘防毒技术规范.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "化工企业液化烃储罐区的安全管理规范包含哪些方面？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[AQ 3059—2023]化工企业液化烃储罐区安全管理规范.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "焦炭单位产品能耗限定值对现有钢铁企业和独立焦化厂有什么要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "新建或改扩建焦炭生产设备的能耗准入值是多少？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "焦炭单位产品能耗先进值在不同电力折算系数下是多少？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "干熄焦蒸汽回收先进值的标准是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "焦炭单位产品能耗的统计范围包括哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "能源及主要耗能工质折算系数取值原则是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "焦炭单位产品能耗的计算方法是怎样的？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "焦炉炉龄校正系数如何确定？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "焦化工序有哪些节能措施？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "管理节能措施包括哪些内容？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 0.14285714285714285,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "技术节能措施对焦炉建设有什么要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "结构节能措施有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21342—2013]焦炭单位产品能源消耗限额.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "地下矿用无轨轮胎式运矿车的定义是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21500—2008]地下矿用无轨轮胎式运矿车 安全要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "运矿车的制动系统由哪些部分构成？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21500—2008]地下矿用无轨轮胎式运矿车 安全要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "行车制动系统的作用是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21500—2008]地下矿用无轨轮胎式运矿车 安全要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "无极荧光灯的组成部分有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21554—2008]无极荧光灯 安全要求.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "放电腔的作用和特点是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21554—2008]无极荧光灯 安全要求.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "感应功率耦合器是如何工作的？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21554—2008]无极荧光灯 安全要求.xlsx"
+        ],
+        "mrr": 0.3333333333333333,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "机械固定装置的功能是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21554—2008]无极荧光灯 安全要求.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "内耦合无极荧光灯有什么特点？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21554—2008]无极荧光灯 安全要求.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "锁具安全通用技术条件有哪些主要内容？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21556—2008]锁具安全通用技术条件.xlsx"
+        ],
+        "mrr": 0.0,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 0.0,
+        "hit@5": 0.0,
+        "hit@10": 0.0
+      },
+      {
+        "question": "教学仪器设备安全要求中对仪器和零部件有什么基本要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21748—2008]教学仪器设备安全要求 仪器和零部件的基本要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "锂原电池和蓄电池在运输中有哪些安全要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21966—2008]锂原电池和蓄电池在运输中的安全要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "建筑火灾逃生避难器材中逃生梯的安全要求是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21976.3—2012]建筑火灾逃生避难器材 第3部分逃生梯.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "逃生滑道的相关安全规范有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21976.4—2012]建筑火灾逃生避难器材 第4部分逃生滑道.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "应急逃生器的安全标准是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21976.5—2012]建筑火灾逃生避难器材 第5部分应急逃生器.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "逃生绳的安全性能要求有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21976.6—2012]建筑火灾逃生避难器材 第6部分逃生绳.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "过滤式消防自救呼吸器的安全要求是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 21976.7—2012]建筑火灾逃生避难器材 第7部分：过滤式消防自救呼吸器.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "车用乙醇汽油调合组分油有什么技术要求？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 22030—2017]车用乙醇汽油调合组分油.xlsx"
+        ],
+        "mrr": 0.5,
+        "use_rerank": false,
+        "hit@1": 0.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "火灾自动报警系统组件兼容性要求有哪些？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 22134—2008]火灾自动报警系统组件兼容性要求.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      },
+      {
+        "question": "吡嘧磺隆可湿性粉剂的相关安全规范是什么？",
+        "relevant_docs": [
+          "C:\\wu\\data\\chunks\\[GB 22170—2008]吡嘧磺隆可湿性粉剂.xlsx"
+        ],
+        "mrr": 1.0,
+        "use_rerank": false,
+        "hit@1": 1.0,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0
+      }
+    ]
+  },
+  "timestamp": "2025-04-24T14:40:27.677642"
+}
