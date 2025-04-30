@@ -42,18 +42,13 @@ class VectorDBBuilder:
         """
         self.config = config
         
-        # 设置缓存目录路径
+        # 设置缓存目录路径（保留用于存储分块分析结果）
         self.cache_dir = Path(config.cache_dir)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
         
         # 设置向量数据库路径
         self.vector_dir = Path(config.vector_db_path)
         self.vector_backup_dir = self.vector_dir / "backups"
-        
-        # 文本块缓存路径
-        self.chunk_cache_path = self.cache_dir / "chunks_cache.json"
-        
-        # 添加处理状态文件路径定义
-        self.state_file = self.cache_dir / "processing_state.json"
         
         # 将源文件目录定义放在初始化方法中
         self.subfolders = ['标准']  # '标准性文件','法律', '规范性文件'
@@ -67,86 +62,75 @@ class VectorDBBuilder:
         self.use_gpu_for_ocr = "cuda" in self.config.device
         
         # 已处理文件状态
-        self.processed_files = {}
         self.failed_files_count = 0
-        self.need_rebuild_index = False
         
         # 是否输出详细的分块内容
         self.print_detailed_chunks = getattr(config, 'print_detailed_chunks', False)
         # 详细输出时每个文本块显示的最大字符数
         self.max_chunk_preview_length = getattr(config, 'max_chunk_preview_length', 200)
+        
+        logger.info("初始化向量数据库构建器...")
 
-    def _load_processing_state(self) -> Dict:
-        """加载之前的文件处理状态"""
-        if self.state_file.exists():  # 如果状态文件存在，则加载
-            with open(self.state_file, "r", encoding='utf-8') as f:
-                return json.load(f)  # 返回加载的状态文件内容
-        return {}  # 如果文件不存在，返回空字典
-
-    def _save_processing_state(self):
-        """保存当前文件处理状态"""
-        try:
-            # 确保目录存在
-            self.state_file.parent.mkdir(parents=True, exist_ok=True)
-            
-            # 保存状态
-            with open(self.state_file, "w", encoding='utf-8') as f:
-                json.dump(self.processed_files, f, indent=2, ensure_ascii=False)
-                
-            logger.debug(f"✅ 已保存处理状态，共 {len(self.processed_files)} 个文件记录")
-        except Exception as e:
-            logger.warning(f"⚠️ 保存处理状态失败: {str(e)}")
-            # 这里不抛出异常，避免中断主流程
-
-    def _should_process(self, file_path: Path) -> bool:
-        """判断文件是否需要处理"""
-        file_stat = file_path.stat()  # 获取文件状态
-        file_info = {
-            "path": str(file_path),  # 文件路径
-            "size": file_stat.st_size,  # 文件大小
-            "mtime": file_stat.st_mtime  # 文件修改时间
-        }
-
-        existing = self.processed_files.get(str(file_path))  # 查找已处理的文件记录
-        if not existing:  # 如果文件未处理过，则需要处理
-            return True
-        return not (existing["size"] == file_info["size"]
-                    and existing["mtime"] == file_info["mtime"])  # 如果文件修改时间或大小不一致，则需要重新处理
-
-    def _check_file_changes(self, current_files: List[Path]) -> Tuple[Set[str], Set[str], Set[str]]:
+    def _is_non_content_page(self, page_content: str, page_num: int) -> bool:
         """
-        检查文件变化，返回需要添加、更新和删除的文件
+        检测页面是否为非内容页面，如封面、目录、目次、前言等，这些页面在分块时应当被过滤掉
         
         Args:
-            current_files: 当前文件系统中的文件列表
+            page_content: 页面文本内容
+            page_num: 页面编号
             
         Returns:
-            Tuple[Set[str], Set[str], Set[str]]: 新增文件、更新文件和删除文件的路径集合
+            bool: 如果是非内容页面返回True，否则返回False
         """
-        # 获取当前文件系统中的所有文件路径
-        current_file_paths = {str(f) for f in current_files}
+        # 如果是第一页，很可能是封面
+        if page_num == 0 or page_num == 1:
+            # 封面页通常很短，或者只包含标题、作者等信息
+            if len(page_content.strip()) < 200:
+                return True
+            
+            # 封面页通常包含这些关键词
+            cover_keywords = ['封面', '版权', '版权所有', '出版', '编写', '编著', 
+                             '著作权', '保留所有权利', '版权声明', '修订版']
+            for keyword in cover_keywords:
+                if keyword in page_content:
+                    return True
         
-        # 获取已处理文件的路径
-        processed_file_paths = set(self.processed_files.keys())
+        # 检测目录、目次页面
+        toc_keywords = ['目录', '目 录', '目次', '目 次', '章节', '第一章', '第二章', '第三章', 
+                       '第一部分', '第二部分', '附录', '索引', '参考文献', '内容', '主要内容']
         
-        # 需要新增的文件（当前存在但未处理过）
-        new_files = current_file_paths - processed_file_paths
+        # 如果页面中包含多个目录关键词，可能是目录页
+        keyword_count = sum(1 for keyword in toc_keywords if keyword in page_content)
+        if keyword_count >= 2:
+            return True
         
-        # 需要更新的文件（已处理过但需要重新处理）
-        update_files = {str(f) for f in current_files if self._should_process(f)}
+        # 检测前言页面
+        preface_keywords = ['前言', '前 言', '序言', '序 言', '引言', '引 言', '绪论', '概述', 
+                            '说明', '编写说明', '使用说明', '编制说明']
+        for keyword in preface_keywords:
+            # 如果前言关键词出现在页面开头部分，很可能是前言页
+            if keyword in page_content[:200] or f"\n{keyword}\n" in page_content:
+                logger.info(f"检测到前言页，关键词: {keyword}")
+                return True
         
-        # 需要删除的文件（已处理过但当前不存在）
-        deleted_files = processed_file_paths - current_file_paths
+        # 检查页面是否有典型的目录结构（行首是章节标题，行尾是页码）
+        lines = page_content.split('\n')
+        pattern_count = 0
+        for line in lines:
+            line = line.strip()
+            # 匹配类似 "第X章 内容..........10" 的模式
+            if line and (line[0] == '第' or line.startswith('附录')) and line.strip()[-1].isdigit():
+                pattern_count += 1
+                
+        # 如果有多行符合目录特征，可能是目录页
+        if pattern_count >= 3:
+            return True
         
-        return new_files, update_files, deleted_files
+        return False
 
     def _load_single_document(self, file_path: Path) -> Optional[List[Document]]:
         """多线程加载单个文档文件（支持 PDF、DOCX、DOC）"""
         try:
-            if not self._should_process(file_path):
-                logger.info(f"[文档加载] 跳过未修改文件: {file_path.name}")
-                return None
-
             file_extension = file_path.suffix.lower()
             docs = []
 
@@ -175,6 +159,41 @@ class VectorDBBuilder:
                     
                     # 处理PDF
                     docs = processor.process()
+                    
+                    # 过滤掉非内容页面（封面、目录、前言等）
+                    if docs:
+                        filtered_docs = []
+                        filtered_count = 0
+                        filtered_types = []
+                        
+                        for i, doc in enumerate(docs):
+                            if not self._is_non_content_page(doc.page_content, i):
+                                filtered_docs.append(doc)
+                            else:
+                                filtered_count += 1
+                                # 尝试判断页面类型
+                                page_type = "非内容页面"
+                                if i == 0 or i == 1:
+                                    page_type = "封面"
+                                elif "目录" in doc.page_content or "目次" in doc.page_content:
+                                    page_type = "目录/目次"
+                                elif "前言" in doc.page_content:
+                                    page_type = "前言"
+                                    
+                                filtered_types.append(page_type)
+                                logger.info(f"[文档加载] 过滤掉 '{file_path.name}' 的第 {i+1} 页（疑似{page_type}）")
+                                
+                        if filtered_count > 0:
+                            # 汇总过滤情况
+                            type_summary = {}
+                            for t in filtered_types:
+                                if t not in type_summary:
+                                    type_summary[t] = 0
+                                type_summary[t] += 1
+                                
+                            type_str = ", ".join([f"{k}页{v}页" for k, v in type_summary.items()])
+                            logger.info(f"[文档加载] 从 '{file_path.name}' 中过滤掉 {filtered_count} 页非内容页面（{type_str}）")
+                            docs = filtered_docs
                     
                     # 检查处理结果
                     if docs and len(docs) < page_count * 0.5:
@@ -211,6 +230,41 @@ class VectorDBBuilder:
                     from langchain_community.document_loaders import Docx2txtLoader
                     loader = Docx2txtLoader(str(file_path))
                     docs = loader.load()
+                    
+                    # 尝试过滤Word文档的非内容页面
+                    if docs and len(docs) > 1:  # 如果Word文档被分成了多个页面
+                        filtered_docs = []
+                        filtered_count = 0
+                        filtered_types = []
+                        
+                        for i, doc in enumerate(docs):
+                            if not self._is_non_content_page(doc.page_content, i):
+                                filtered_docs.append(doc)
+                            else:
+                                filtered_count += 1
+                                # 尝试判断页面类型
+                                page_type = "非内容页面"
+                                if i == 0 or i == 1:
+                                    page_type = "封面"
+                                elif "目录" in doc.page_content or "目次" in doc.page_content:
+                                    page_type = "目录/目次"
+                                elif "前言" in doc.page_content:
+                                    page_type = "前言"
+                                    
+                                filtered_types.append(page_type)
+                                logger.info(f"[文档加载] 过滤掉 '{file_path.name}' 的第 {i+1} 部分（疑似{page_type}）")
+                                
+                        if filtered_count > 0:
+                            # 汇总过滤情况
+                            type_summary = {}
+                            for t in filtered_types:
+                                if t not in type_summary:
+                                    type_summary[t] = 0
+                                type_summary[t] += 1
+                                
+                            type_str = ", ".join([f"{k}{v}页" for k, v in type_summary.items()])
+                            logger.info(f"[文档加载] 从 '{file_path.name}' 中过滤掉 {filtered_count} 部分非内容页面（{type_str}）")
+                            docs = filtered_docs
                 except Exception as e:
                     logger.error(f"[文档加载] 处理DOCX文件 '{file_path.name}' 失败: {str(e)}")
                     
@@ -221,6 +275,41 @@ class VectorDBBuilder:
                         loader = UnstructuredWordDocumentLoader(str(file_path))
                         docs = loader.load()
                         logger.info(f"[文档加载] 成功使用替代方法加载Word文档: {file_path.name}")
+                        
+                        # 也尝试过滤非内容页面
+                        if docs and len(docs) > 1:
+                            filtered_docs = []
+                            filtered_count = 0
+                            filtered_types = []
+                            
+                            for i, doc in enumerate(docs):
+                                if not self._is_non_content_page(doc.page_content, i):
+                                    filtered_docs.append(doc)
+                                else:
+                                    filtered_count += 1
+                                    # 尝试判断页面类型
+                                    page_type = "非内容页面"
+                                    if i == 0 or i == 1:
+                                        page_type = "封面"
+                                    elif "目录" in doc.page_content or "目次" in doc.page_content:
+                                        page_type = "目录/目次"
+                                    elif "前言" in doc.page_content:
+                                        page_type = "前言"
+                                        
+                                    filtered_types.append(page_type)
+                                    logger.info(f"[文档加载] 过滤掉 '{file_path.name}' 的第 {i+1} 部分（疑似{page_type}）")
+                                    
+                            if filtered_count > 0:
+                                # 汇总过滤情况
+                                type_summary = {}
+                                for t in filtered_types:
+                                    if t not in type_summary:
+                                        type_summary[t] = 0
+                                    type_summary[t] += 1
+                                    
+                                type_str = ", ".join([f"{k}{v}页" for k, v in type_summary.items()])
+                                logger.info(f"[文档加载] 从 '{file_path.name}' 中过滤掉 {filtered_count} 部分非内容页面（{type_str}）")
+                                docs = filtered_docs
                     except Exception as e2:
                         logger.error(f"[文档加载] 替代方法也失败: {str(e2)}")
                         self.failed_files_count += 1
@@ -230,14 +319,6 @@ class VectorDBBuilder:
                 return None
 
             if docs:
-                # 记录文件处理信息
-                self.processed_files[str(file_path)] = {
-                    "size": file_path.stat().st_size,
-                    "mtime": file_path.stat().st_mtime,
-                    "processed_at": datetime.now().isoformat(),
-                    "pages": len(docs),
-                    "file_name": file_path.name  # 添加文件名，便于后续查找
-                }
                 # 统一添加元数据
                 for doc in docs:
                     doc.metadata["source"] = str(file_path)
@@ -250,85 +331,12 @@ class VectorDBBuilder:
             self.failed_files_count += 1
             return None
 
-    def _cleanup_deleted_files(self):
-        """
-        清理已删除文件的缓存信息
-        """
-        if not self.chunk_cache_path.exists():
-            return
-            
-        try:
-            # 获取当前所有文件路径
-            current_files = []
-            # 使用self.subfolders代替硬编码的子文件夹列表
-            for subfolder in self.subfolders:
-                folder_path = self.config.data_dir / subfolder
-                if folder_path.exists() and folder_path.is_dir():
-                    current_files.extend([f for f in folder_path.rglob("*") 
-                                       if f.suffix.lower() in ['.pdf', '.docx', '.doc']])
-                    
-            # 分析文件变化
-            new_files, update_files, deleted_files = self._check_file_changes(current_files)
-            
-            if not deleted_files and not update_files:
-                logger.info("没有检测到文件变化，跳过清理")
-                return
-                
-            # 如果有文件被删除或更新，需要清理缓存
-            with open(self.chunk_cache_path, 'r', encoding='utf-8') as f:
-                cache_data = json.load(f)
-                
-            # 清理已删除文件和更新文件的数据
-            files_to_clean = deleted_files.union(update_files)
-            if files_to_clean:
-                logger.info(f"检测到 {len(deleted_files)} 个已删除文件, {len(update_files)} 个已更新文件")
-                
-                # 从处理状态中删除已删除的文件
-                for file_path in deleted_files:
-                    if file_path in self.processed_files:
-                        del self.processed_files[file_path]
-                        logger.info(f"从处理状态中移除已删除文件: {Path(file_path).name}")
-                
-                # 从缓存中过滤掉已删除和已更新的文件块
-                clean_chunks = []
-                removed_count = 0
-                
-                for chunk in cache_data.get("chunks", []):
-                    chunk_source = chunk.get("metadata", {}).get("source", "")
-                    if chunk_source in files_to_clean:
-                        removed_count += 1
-                        continue
-                    clean_chunks.append(chunk)
-                
-                # 更新缓存数据
-                if removed_count > 0:
-                    cache_data["chunks"] = clean_chunks
-                    cache_data["file_state"] = self.processed_files
-                    with open(self.chunk_cache_path, 'w', encoding='utf-8') as f:
-                        json.dump(cache_data, f, ensure_ascii=False, indent=2)
-                    logger.info(f"✅ 已从缓存中移除 {removed_count} 个过时的文本块")
-                    self.need_rebuild_index = True
-                    
-                    # 保存更新后的处理状态
-                    self._save_processing_state()
-                    
-        except Exception as e:
-            logger.error(f"清理缓存失败: {str(e)}")
-            # 遇到错误，为安全起见标记需要重建索引
-            self.need_rebuild_index = True
-
     def load_documents(self) -> List:
-        """并行加载所有文档"""
+        """加载所有文档"""
         logger.info("⌛ 开始加载文档...")
-        
-        # 首先清理已删除文件的缓存
-        self._cleanup_deleted_files()
 
-        # 获取 data_dir 下的所有子文件夹
-        # 使用self.subfolders代替硬编码的子文件夹列表
+        # 获取所有文档文件
         document_files = []
-
-        # 遍历每个子文件夹，获取其中的文档文件
         for subfolder in self.subfolders:
             folder_path = self.config.data_dir / subfolder
             if folder_path.exists() and folder_path.is_dir():
@@ -341,19 +349,10 @@ class VectorDBBuilder:
         document_files = sorted(document_files, key=lambda x: x.stat().st_size)
         logger.info(f"发现 {len(document_files)} 个待处理文件")
         
-        # 过滤出需要处理的文件
-        files_to_process = [f for f in document_files if self._should_process(f)]
-        logger.info(f"其中 {len(files_to_process)} 个文件需要处理")
-        
-        if not files_to_process:
-            logger.info("没有新文件需要处理，使用现有缓存")
-            # 从缓存加载文档
-            return self._load_documents_from_cache()
-
+        results = []
         # 限制线程池大小以避免资源争用
         with ThreadPoolExecutor(max_workers=1) as executor:
-            futures = [executor.submit(self._load_single_document, file) for file in files_to_process]
-            results = []
+            futures = [executor.submit(self._load_single_document, file) for file in document_files]
             with tqdm(total=len(futures), desc="加载文档", unit="files") as pbar:
                 for future in as_completed(futures):
                     res = future.result()
@@ -371,201 +370,116 @@ class VectorDBBuilder:
                 torch.cuda.empty_cache()
         except:
             pass
-            
+        
         logger.info(f"✅ 成功加载 {len(results)} 页文档")
         logger.info(f"❌ 未成功加载 {self.failed_files_count} 个文件")
-        self._save_processing_state()
         
-        # 处理文件变化后，将新处理的文档与现有缓存合并
-        if results and self.chunk_cache_path.exists():
-            self._merge_with_cache(results)
-            # 设置标记，表示需要重建索引
-            self.need_rebuild_index = True
-            return self._load_documents_from_cache()
-            
         return results
 
-    def _load_documents_from_cache(self) -> List[Document]:
-        """从缓存加载文档"""
-        try:
-            if self.chunk_cache_path.exists():
-                with open(self.chunk_cache_path, 'r', encoding='utf-8') as f:
-                    cache_data = json.load(f)
-                    chunks = [
-                        Document(
-                            page_content=chunk["content"],
-                            metadata=chunk["metadata"]
-                        )
-                        for chunk in cache_data.get("chunks", [])
-                    ]
-                    logger.info(f"从缓存加载了 {len(chunks)} 个文本块")
-                    return chunks
-        except Exception as e:
-            logger.error(f"加载缓存失败: {str(e)}")
-        
-        return []
-
-    def _merge_with_cache(self, new_docs: List[Document]):
-        """将新处理的文档与现有缓存合并"""
-        try:
-            # 加载现有缓存
-            if not self.chunk_cache_path.exists():
-                logger.info("缓存不存在，跳过合并")
-                return
-                
-            with open(self.chunk_cache_path, 'r', encoding='utf-8') as f:
-                cache_data = json.load(f)
-                
-            # 使用与process_files相同的分块逻辑处理新文档
-            text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=self.config.chunk_size,
-                chunk_overlap=self.config.chunk_overlap,
-                separators=["\n\n", "\n", "。", "；", "！", "？", "，", " ", ""],
-                length_function=len,
-                add_start_index=True,
-                is_separator_regex=False
-            )
-            
-            # 处理新文档
-            new_chunks = []
-            for doc in new_docs:
-                metadata = doc.metadata.copy()
-                split_texts = text_splitter.split_text(doc.page_content)
-                for text in split_texts:
-                    # 生成内容哈希
-                    content_hash = hashlib.md5(text.encode()).hexdigest()
-                    enhanced_metadata = metadata.copy()
-                    enhanced_metadata["content_hash"] = content_hash
-                    new_chunks.append({
-                        "content": text,
-                        "metadata": enhanced_metadata
-                    })
-                    
-            # 合并缓存
-            existing_chunks = cache_data.get("chunks", [])
-            
-            # 从现有缓存中过滤掉与新文档相同来源的块
-            filtered_chunks = []
-            new_sources = {doc.metadata.get("source") for doc in new_docs}
-            for chunk in existing_chunks:
-                chunk_source = chunk.get("metadata", {}).get("source", "")
-                if chunk_source not in new_sources:
-                    filtered_chunks.append(chunk)
-                    
-            # 合并过滤后的现有块和新块
-            merged_chunks = filtered_chunks + new_chunks
-            
-            # 更新缓存
-            cache_data["chunks"] = merged_chunks
-            cache_data["file_state"] = self.processed_files
-            
-            with open(self.chunk_cache_path, 'w', encoding='utf-8') as f:
-                json.dump(cache_data, f, ensure_ascii=False, indent=2)
-                
-            logger.info(f"✅ 已将 {len(new_chunks)} 个新块合并到缓存中，总计 {len(merged_chunks)} 个块")
-            
-        except Exception as e:
-            logger.error(f"合并缓存失败: {str(e)}")
-
     def process_files(self) -> List:
-        """优化的文件处理流程"""
+        """优化的文件处理流程，使用章节分块方法"""
         logger.info("开始文件处理流程")
         
-        # 首先检查是否有现有缓存可用
-        if self.chunk_cache_path.exists() and not self.need_rebuild_index:
-            try:
-                with open(self.chunk_cache_path, 'r', encoding='utf-8') as f:
-                    cache_data = json.load(f)
-                    
-                    # 比较缓存中的文件状态与当前处理状态
-                    if cache_data.get("file_state", {}) == self.processed_files:
-                        chunks = [
-                            Document(
-                                page_content=chunk["content"],
-                                metadata=chunk["metadata"]
-                            )
-                            for chunk in cache_data.get("chunks", [])
-                        ]
-                        logger.info(f"✅ 从缓存加载 {len(chunks)} 个分块")
-                        
-                        # 打印分块结果概览
-                        self._print_chunks_summary(chunks)
-                        
-                        return chunks
-            except Exception as e:
-                logger.error(f"缓存加载失败: {str(e)}")
-
-        # 如果没有合适的缓存，处理所有文档
+        # 加载所有文档
         all_docs = self.load_documents()
 
         if not all_docs:
             logger.warning("没有可处理的文件内容")
             return []
 
-        # 只有在没有从load_documents中使用缓存时才需要进行分块处理
-        if not self.need_rebuild_index:
-            # 首先按文件合并页面内容，避免跨页分块断裂
-            logger.info("合并文件页面内容，准备进行整体分块...")
+        # 首先按文件合并页面内容，避免跨页分块断裂
+        logger.info("合并文件页面内容，准备进行整体分块...")
+        
+        # 按文件分组整理文档
+        file_docs = {}
+        for doc in all_docs:
+            source = doc.metadata.get("source", "")
+            if source not in file_docs:
+                file_docs[source] = []
+            file_docs[source].append(doc)
+        
+        # 对每个文件的页面进行排序和合并
+        whole_docs = []
+        for source, docs in file_docs.items():
+            # 按页码排序
+            sorted_docs = sorted(docs, key=lambda x: x.metadata.get("page", 0))
             
-            # 按文件分组整理文档
-            file_docs = {}
-            for doc in all_docs:
-                source = doc.metadata.get("source", "")
-                if source not in file_docs:
-                    file_docs[source] = []
-                file_docs[source].append(doc)
+            # 合并文件所有页面的内容
+            full_content = "\n\n".join([doc.page_content for doc in sorted_docs])
             
-            # 对每个文件的页面进行排序和合并
-            whole_docs = []
-            for source, docs in file_docs.items():
-                # 按页码排序
-                sorted_docs = sorted(docs, key=lambda x: x.metadata.get("page", 0))
-                
-                # 合并文件所有页面的内容
-                full_content = "\n\n".join([doc.page_content for doc in sorted_docs])
-                
-                # 创建完整文档对象
-                file_doc = Document(
-                    page_content=full_content,
-                    metadata={
-                        "source": source,
-                        "file_name": sorted_docs[0].metadata.get("file_name", ""),
-                        "page_count": len(sorted_docs),
-                        "is_merged_doc": True  # 标记为合并后的完整文档
-                    }
-                )
-                whole_docs.append(file_doc)
-                
-            logger.info(f"已将 {len(all_docs)} 页内容合并为 {len(whole_docs)} 个完整文档")
-            
-            # 对合并后的完整文档进行分块
-            # 优化后的文本分割配置
-            text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=self.config.chunk_size,  # 根据中文平均长度调整
-                chunk_overlap=self.config.chunk_overlap,  # 适当增加重叠量
-                separators=[
-                    "\n\n",  # 优先按空行分割
-                    "\n",  # 其次按换行符分割
-                    "。", "；",  # 中文句末标点
-                    "！", "？",  # 中文感叹号和问号
-                    "，",  # 中文逗号（谨慎使用）
-                    " ",  # 空格
-                    ""  # 最后按字符分割
-                ],
-                length_function=len,
-                add_start_index=True,
-                is_separator_regex=False  # 明确使用字面分隔符
+            # 创建完整文档对象
+            file_doc = Document(
+                page_content=full_content,
+                metadata={
+                    "source": source,
+                    "file_name": sorted_docs[0].metadata.get("file_name", ""),
+                    "page_count": len(sorted_docs),
+                    "is_merged_doc": True  # 标记为合并后的完整文档
+                }
             )
-
-            logger.info("开始智能分块处理...")
-            chunks = []
-            # 新增哈希生成和元数据增强
-            with tqdm(total=len(whole_docs), desc="处理文档分块") as pbar:
-                for doc in whole_docs:
-                    metadata = doc.metadata.copy()
-                    # 移除分块后不再适用的元数据
-                    if "is_merged_doc" in metadata:
-                        del metadata["is_merged_doc"]
+            whole_docs.append(file_doc)
+            
+        logger.info(f"已将 {len(all_docs)} 页内容合并为 {len(whole_docs)} 个完整文档")
+        
+        # 使用按章节分块方法
+        logger.info("使用章节分块方法，按照标准文档结构进行分块...")
+        chunks = []
+        
+        with tqdm(total=len(whole_docs), desc="处理文档章节分块") as pbar:
+            for doc in whole_docs:
+                metadata = doc.metadata.copy()
+                # 移除分块后不再适用的元数据
+                if "is_merged_doc" in metadata:
+                    del metadata["is_merged_doc"]
+                
+                # 按章节分块
+                sections = self._split_by_section(doc.page_content)
+                
+                # 如果找到章节，则使用章节分块
+                if sections:
+                    logger.info(f"找到 {len(sections)} 个章节，使用章节结构进行分块")
+                    for i, (title, content, section_meta) in enumerate(sections):
+                        if not content.strip():  # 跳过空章节
+                            continue
+                            
+                        # 生成内容哈希
+                        content_hash = hashlib.md5(content.encode()).hexdigest()
+                        
+                        # 合并元数据
+                        enhanced_metadata = metadata.copy()
+                        enhanced_metadata.update(section_meta)  # 添加章节元数据
+                        enhanced_metadata["content_hash"] = content_hash
+                        enhanced_metadata["chunk_index"] = i
+                        enhanced_metadata["total_chunks"] = len(sections)
+                        enhanced_metadata["chunk_type"] = "section"
+                        
+                        # 添加块位置标记
+                        if i == 0:
+                            enhanced_metadata["position"] = "document_start"
+                        elif i == len(sections) - 1:
+                            enhanced_metadata["position"] = "document_end"
+                        else:
+                            enhanced_metadata["position"] = "document_middle"
+                        
+                        chunks.append(Document(
+                            page_content=content,
+                            metadata=enhanced_metadata
+                        ))
+                else:
+                    # 如果未找到章节结构，则回退到常规分块
+                    logger.warning(f"未检测到章节结构，回退到常规分块方法")
+                    
+                    # 优化后的文本分割配置
+                    text_splitter = RecursiveCharacterTextSplitter(
+                        chunk_size=self.config.chunk_size,
+                        chunk_overlap=self.config.chunk_overlap,
+                        separators=[
+                            "\n\n", "\n", "。", "；", "！", "？", "，", " ", ""
+                        ],
+                        length_function=len,
+                        add_start_index=True,
+                        is_separator_regex=False
+                    )
                     
                     # 对完整文档进行分块
                     split_texts = text_splitter.split_text(doc.page_content)
@@ -583,6 +497,7 @@ class VectorDBBuilder:
                         enhanced_metadata["content_hash"] = content_hash
                         enhanced_metadata["chunk_index"] = i
                         enhanced_metadata["total_chunks"] = len(split_texts)
+                        enhanced_metadata["chunk_type"] = "fixed_size"
                         
                         # 添加块位置标记
                         if i == 0:
@@ -596,34 +511,160 @@ class VectorDBBuilder:
                             page_content=text,
                             metadata=enhanced_metadata
                         ))
-                    pbar.update(1)
-            
-            # 应用后处理，确保文本块的完整性和连贯性
-            chunks = self._post_process_chunks(chunks)
-            
-            logger.info(f"生成 {len(chunks)} 个语义连贯的文本块")
-            
-            # 打印分块结果概览
-            self._print_chunks_summary(chunks)
+                    
+                pbar.update(1)
+        
+        # 应用后处理，确保文本块的完整性和连贯性
+        chunks = self._post_process_chunks(chunks)
+        
+        logger.info(f"生成 {len(chunks)} 个语义连贯的文本块")
+        
+        # 打印分块结果概览
+        self._print_chunks_summary(chunks)
+        
+        # 保存分块到文件，方便用户查看
+        self.save_chunks_to_file(chunks)
 
-            # 保存处理结果到缓存
-            cache_data = {
-                "file_state": self.processed_files,
-                "chunks": [{
-                    "content": chunk.page_content,
-                    "metadata": chunk.metadata
-                } for chunk in chunks]
+        return chunks
+
+    def _split_by_section(self, text: str) -> List[Tuple[str, str, Dict]]:
+        """
+        根据章节标题（如1、1.1、1.1.1格式）将文本分割成段落
+        
+        Args:
+            text: 完整的文档文本
+            
+        Returns:
+            List[Tuple[str, str, Dict]]: 返回章节标题、章节内容和元数据的元组列表
+        """
+        logger.info("开始按章节结构进行文档分块...")
+        
+        # 定义章节标题模式的正则表达式
+        # 匹配形如"1."、"1.1"、"1.1.1"等的章节标记，后面跟着空格和标题文本
+        section_patterns = [
+            # 匹配第一级标题：数字+点，如"1. 总则"
+            r'^\s*(\d+)\.?\s+([^\n]+)$',
+            # 匹配第二级标题：数字.数字，如"1.1 适用范围"
+            r'^\s*(\d+\.\d+)\.?\s+([^\n]+)$',
+            # 匹配第三级标题：数字.数字.数字，如"1.1.1 基本要求"
+            r'^\s*(\d+\.\d+\.\d+)\.?\s+([^\n]+)$',
+            # 匹配可能的第四级标题：数字.数字.数字.数字
+            r'^\s*(\d+\.\d+\.\d+\.\d+)\.?\s+([^\n]+)$',
+            # 匹配中文序号标题：一、二、三...
+            r'^\s*([一二三四五六七八九十]+)[、.．]\s+([^\n]+)$',
+            # 匹配括号序号标题：（一）（二）...
+            r'^\s*[（(]([一二三四五六七八九十]+)[)）]\s+([^\n]+)$',
+            # 匹配附录格式：附录A、附录B等
+            r'^\s*(附录\s*[A-Za-z])[.．、]?\s*([^\n]+)?$'
+        ]
+        
+        # 将文本按行分割
+        lines = text.split('\n')
+        
+        # 初始化结果列表和当前章节信息
+        sections = []
+        current_section_num = ""
+        current_section_title = ""
+        current_section_content = []
+        current_section_level = 0
+        
+        # 用于标记是否已经找到第一个章节标题
+        found_first_section = False
+        
+        # 逐行处理文本
+        for line_num, line in enumerate(lines):
+            line = line.strip()
+            if not line:
+                # 空行，添加到当前章节内容
+                if current_section_content:
+                    current_section_content.append("")
+                continue
+            
+            # 检查是否为章节标题
+            is_section_header = False
+            section_level = 0
+            section_num = ""
+            section_title = ""
+            
+            for i, pattern in enumerate(section_patterns):
+                import re
+                match = re.match(pattern, line)
+                if match:
+                    section_level = i + 1  # 章节级别
+                    section_num = match.group(1)  # 章节编号
+                    
+                    # 处理标题，如果匹配组2存在
+                    if len(match.groups()) > 1 and match.group(2):
+                        section_title = match.group(2).strip()
+                    else:
+                        # 如果没有标题文本，使用章节编号作为标题
+                        section_title = section_num
+                    
+                    # 检查是否是第一个真正的章节标题
+                    # 通常文档开始会有"1. 总则"或"1. 范围"这样的标题
+                    if not found_first_section and section_level == 1:
+                        found_first_section = True
+                    
+                    is_section_header = True
+                    break
+            
+            # 如果当前行是章节标题，且已找到第一个章节标题
+            if is_section_header and (found_first_section or "附录" in section_num):
+                # 保存先前章节的内容（如果有）
+                if current_section_num and current_section_content:
+                    # 合并当前章节的内容
+                    content = "\n".join(current_section_content)
+                    # 创建元数据
+                    metadata = {
+                        "section_num": current_section_num,
+                        "section_title": current_section_title,
+                        "section_level": current_section_level
+                    }
+                    # 添加到结果列表
+                    sections.append((current_section_num + " " + current_section_title, content, metadata))
+                
+                # 开始新章节
+                current_section_num = section_num
+                current_section_title = section_title
+                current_section_level = section_level
+                current_section_content = [line]  # 包含章节标题行
+            else:
+                # 非章节标题行，添加到当前章节内容
+                if current_section_content or not found_first_section:
+                    current_section_content.append(line)
+        
+        # 处理最后一个章节
+        if current_section_num and current_section_content:
+            content = "\n".join(current_section_content)
+            metadata = {
+                "section_num": current_section_num,
+                "section_title": current_section_title,
+                "section_level": current_section_level
             }
+            sections.append((current_section_num + " " + current_section_title, content, metadata))
+        
+        # 处理可能存在的前导内容（在第一个章节标题之前）
+        if not found_first_section and current_section_content:
+            # 如果没有找到任何章节标题，但仍有内容
+            # 创建一个"引言"章节
+            content = "\n".join(current_section_content)
+            metadata = {
+                "section_num": "0",
+                "section_title": "引言",
+                "section_level": 0
+            }
+            sections.append(("引言", content, metadata))
+        
+        # 打印章节分块结果
+        logger.info(f"按章节结构分块完成，共找到 {len(sections)} 个章节")
+        for i, (title, _, meta) in enumerate(sections[:min(5, len(sections))]):
+            logger.info(f"  • 章节 {i+1}: {title} (级别: {meta['section_level']})")
+        
+        if len(sections) > 5:
+            logger.info(f"  ... 以及 {len(sections)-5} 个其他章节")
+        
+        return sections
 
-            with open(self.chunk_cache_path, 'w', encoding='utf-8') as f:
-                json.dump(cache_data, f, ensure_ascii=False, indent=2)
-
-            logger.info(f"✅ 分块缓存已保存至 {self.chunk_cache_path}")
-            return chunks
-        else:
-            # 如果已经通过load_documents加载并更新了缓存，直接返回文档
-            return all_docs
-            
     def _ensure_complete_sentences(self, text: str) -> str:
         """确保文本块以完整句子开始和结束
         
@@ -926,11 +967,9 @@ class VectorDBBuilder:
             logger.warning("没有文档块可以处理，跳过向量存储构建")
             return
 
-        # 检查是否需要重建索引
-        if self.need_rebuild_index:
-            logger.info("检测到文件变化，需要重建向量索引")
-            if Path(self.config.vector_db_path).exists() and any(Path(self.config.vector_db_path).glob('*')):
-                self.backup_vector_db()
+        # 备份现有向量数据库
+        if Path(self.config.vector_db_path).exists() and any(Path(self.config.vector_db_path).glob('*')):
+            self.backup_vector_db()
 
         # 生成嵌入模型
         embeddings = self.create_embeddings()
@@ -947,6 +986,122 @@ class VectorDBBuilder:
         # 保存向量数据库
         vector_store.save_local(str(self.config.vector_db_path))  # 保存向量存储到指定路径
         logger.info(f"向量数据库已保存至 {self.config.vector_db_path}")  # 输出保存路径
+
+    def save_chunks_to_file(self, chunks: List[Document]):
+        """将文档分块保存到文件中，支持多种格式，但不作为缓存存储
+        
+        Args:
+            chunks: 文档分块列表
+        """
+        if not chunks:
+            logger.info("没有文本块可供保存")
+            return
+        
+        # 确保缓存目录存在
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 保存为纯文本格式，方便直接查看
+        text_file = self.cache_dir / "chunks_text.txt"
+        try:
+            with open(text_file, "w", encoding="utf-8") as f:
+                f.write(f"文档分块总览\n")
+                f.write(f"=============\n")
+                f.write(f"总块数: {len(chunks)}\n")
+                f.write(f"涉及文件数: {len(set(chunk.metadata.get('source', '') for chunk in chunks))}\n\n")
+                
+                # 按文件分组输出
+                file_chunks = {}
+                for chunk in chunks:
+                    source = chunk.metadata.get("source", "未知来源")
+                    if source not in file_chunks:
+                        file_chunks[source] = []
+                    file_chunks[source].append(chunk)
+                
+                for file_path, file_chunks_list in sorted(file_chunks.items(), key=lambda x: len(x[1]), reverse=True):
+                    file_name = Path(file_path).name if isinstance(file_path, str) else "未知文件"
+                    f.write(f"\n{'='*80}\n")
+                    f.write(f"文件: {file_name} (共{len(file_chunks_list)}块)\n")
+                    f.write(f"{'='*80}\n\n")
+                    
+                    for i, chunk in enumerate(file_chunks_list):
+                        # 获取章节信息
+                        section_num = chunk.metadata.get("section_num", "")
+                        section_title = chunk.metadata.get("section_title", "")
+                        chunk_index = chunk.metadata.get("chunk_index", i)
+                        total_chunks = chunk.metadata.get("total_chunks", len(file_chunks_list))
+                        position = chunk.metadata.get("position", "")
+                        chunk_type = chunk.metadata.get("chunk_type", "")
+                        
+                        # 构建块标题
+                        header = f"----- 块 {chunk_index+1}/{total_chunks} "
+                        if section_num and section_title:
+                            header += f"[章节: {section_num} {section_title}, "
+                        header += f"位置:{position}, {len(chunk.page_content)}字符"
+                        if chunk_type:
+                            header += f", 类型:{chunk_type}"
+                        header += "] -----\n"
+                        
+                        # 写入块信息
+                        f.write(header)
+                        f.write(chunk.page_content)
+                        f.write("\n\n")
+            
+            logger.info(f"✅ 文本格式的分块内容已保存至: {text_file}")
+        except Exception as e:
+            logger.error(f"保存文本格式的分块内容失败: {str(e)}")
+        
+        # 保存为JSON格式，包含完整的元数据
+        json_file = self.cache_dir / "chunks_detail.json"
+        try:
+            chunks_data = []
+            for i, chunk in enumerate(chunks):
+                chunk_data = {
+                    "index": i,
+                    "content": chunk.page_content,
+                    "length": len(chunk.page_content),
+                    "metadata": chunk.metadata
+                }
+                chunks_data.append(chunk_data)
+                
+            with open(json_file, "w", encoding="utf-8") as f:
+                json.dump({
+                    "total_chunks": len(chunks),
+                    "timestamp": datetime.now().isoformat(),
+                    "chunks": chunks_data
+                }, f, ensure_ascii=False, indent=2)
+                
+            logger.info(f"✅ JSON格式的分块详细信息已保存至: {json_file}")
+        except Exception as e:
+            logger.error(f"保存JSON格式的分块详细信息失败: {str(e)}")
+        
+        # 保存CSV格式的摘要信息，方便导入电子表格查看
+        csv_file = self.cache_dir / "chunks_summary.csv"
+        try:
+            with open(csv_file, "w", encoding="utf-8") as f:
+                # 写入CSV头
+                f.write("索引,文件名,章节编号,章节标题,块索引,总块数,位置,字符数,内容预览\n")
+                
+                for i, chunk in enumerate(chunks):
+                    source = chunk.metadata.get("source", "未知来源")
+                    file_name = Path(source).name if isinstance(source, str) else "未知文件"
+                    section_num = chunk.metadata.get("section_num", "")
+                    section_title = chunk.metadata.get("section_title", "")
+                    chunk_index = chunk.metadata.get("chunk_index", i)
+                    total_chunks = chunk.metadata.get("total_chunks", 0)
+                    position = chunk.metadata.get("position", "")
+                    length = len(chunk.page_content)
+                    
+                    # 内容预览，去除换行符
+                    preview = chunk.page_content[:100].replace("\n", " ").replace("\r", " ")
+                    if len(chunk.page_content) > 100:
+                        preview += "..."
+                    preview = f'"{preview}"'  # 用引号包围，避免CSV解析错误
+                    
+                    f.write(f"{i},{file_name},{section_num},{section_title},{chunk_index},{total_chunks},{position},{length},{preview}\n")
+                
+            logger.info(f"✅ CSV格式的分块摘要已保存至: {csv_file}")
+        except Exception as e:
+            logger.error(f"保存CSV格式的分块摘要失败: {str(e)}")
 
 
 if __name__ == "__main__":

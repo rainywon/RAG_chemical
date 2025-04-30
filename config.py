@@ -10,13 +10,13 @@ class Config:
     def __init__(self, data_dir: str = "data"):
         # ████████ 路径配置 ████████
         self.data_dir = Path(data_dir)  # 数据存储根目录（自动转换为Path对象）
-        self.embedding_model_path = r"C:\Users\coins\Desktop\models\bge-large-zh-v1.5"  # 文本嵌入模型存储路径
-        self.vector_db_path = "vector_store/data"  # FAISS向量数据库存储目录
-        self.rerank_model_path = r"C:\Users\coins\Desktop\models\bge-reranker-large"  # 重排序模型路径
-        # self.embedding_model_path = r"C:\wu\models\bge-large-zh-v1.5"  # 文本嵌入模型存储路径
-        # self.vector_db_path = r"C:\wu\RAG\vector_store\data"  # FAISS向量数据库存储目录
-        # self.rerank_model_path = r"C:\wu\models\bge-reranker-large"  # 重排序模型路径
-        # self.excel_dir = r"C:\wu\RAG\data\chunks"  # Excel文件目录
+        #self.embedding_model_path = r"C:\Users\coins\Desktop\models\bge-large-zh-v1.5"  # 文本嵌入模型存储路径
+        #self.vector_db_path = "vector_store/data"  # FAISS向量数据库存储目录
+        #self.rerank_model_path = r"C:\Users\coins\Desktop\models\bge-reranker-large"  # 重排序模型路径
+        self.embedding_model_path = r"C:\wu\models\bge-large-zh-v1.5"  # 文本嵌入模型存储路径
+        self.vector_db_path = r"C:\wu\RAG\vector_store\data"  # FAISS向量数据库存储目录
+        self.rerank_model_path = r"C:\wu\models\bge-reranker-large"  # 重排序模型路径
+        self.excel_dir = r"C:\wu\RAG\data\chunks"  # Excel文件目录
 
         self.cache_dir = "cache"  # 缓存目录
         self.max_backups = 5  # 保留的最大备份数量
