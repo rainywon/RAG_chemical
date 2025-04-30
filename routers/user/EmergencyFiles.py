@@ -180,7 +180,7 @@ async def get_emergency_files(
         )
         
         # 使用配置中的文件存储路径
-        base_path = config.safety_document_path
+        base_path = config.emergency_plan_path
         
         # 获取所有文件
         all_files = []

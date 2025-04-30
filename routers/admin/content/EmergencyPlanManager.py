@@ -92,7 +92,7 @@ def log_admin_operation(admin_id, operation_type, description):
         # 操作日志记录失败不会阻止主要功能
 
 # 获取文件列表
-@router.get("/admin/content/emergency-plans", tags=["应急预案管理"])
+@router.get("/admin/content/emergency-plans", tags=["事故案例管理"])
 async def get_file_list(
     request: Request,
     search_query: Optional[str] = Query(None, description="搜索关键词"),
@@ -104,63 +104,68 @@ async def get_file_list(
     page_size: int = Query(20, description="每页数量")
 ):
     """
-    获取应急预案文件列表，支持搜索、筛选和排序
+    获取事故案例文件列表，支持搜索、筛选和排序
     """
     try:
         # 获取管理员ID
         admin_id = await get_current_admin(request)
         
         # 记录操作日志（不阻止主要功能）
-        log_admin_operation(admin_id, "查询", "查询应急预案文件列表")
+        log_admin_operation(admin_id, "查询", "查询事故案例文件列表")
         
-        # 获取所有文件
+        # 获取所有文件（包括子目录）
         file_list = []
-        file_paths = glob.glob(os.path.join(EMERGENCY_PLAN_PATH, "*.*"))
-        
-        for i, file_path in enumerate(file_paths):
-            file_stats = os.stat(file_path)
-            file_path_obj = Path(file_path)
-            file_name = file_path_obj.name
-            file_ext = file_path_obj.suffix
-            
-            # 只接受 PDF, DOC, DOCX 文件
-            if file_ext.lower() not in ['.pdf', '.doc', '.docx']:
-                continue
-            
-            file_info = {
-                "id": str(i + 1),
-                "fileName": file_name,
-                "fileType": file_ext,
-                "fileSize": file_stats.st_size,
-                "createdTime": datetime.fromtimestamp(file_stats.st_ctime).isoformat(),
-                "lastModified": datetime.fromtimestamp(file_stats.st_mtime).isoformat(),
-                "path": file_path
-            }
-            
-            # 应用搜索过滤
-            if search_query and search_query.lower() not in file_name.lower():
-                continue
+        for root, dirs, files in os.walk(EMERGENCY_PLAN_PATH):
+            for file in files:
+                file_path = os.path.join(root, file)
+                file_stats = os.stat(file_path)
+                file_path_obj = Path(file_path)
+                file_name = file_path_obj.name
+                file_ext = file_path_obj.suffix
                 
-            # 应用文件类型过滤
-            if file_type and file_ext.lower() != f".{file_type.lower()}":
-                continue
+                # 只接受 PDF, DOC, DOCX 文件
+                if file_ext.lower() not in ['.pdf', '.doc', '.docx']:
+                    continue
                 
-            # 应用日期范围过滤
-            if start_date or end_date:
-                file_date = datetime.fromtimestamp(file_stats.st_mtime)
+                # 获取相对路径（相对于EMERGENCY_PLAN_PATH）
+                rel_path = os.path.relpath(root, EMERGENCY_PLAN_PATH)
+                category = rel_path if rel_path != '.' else '根目录'
                 
-                if start_date:
-                    start_datetime = datetime.fromisoformat(start_date)
-                    if file_date < start_datetime:
-                        continue
-                        
-                if end_date:
-                    end_datetime = datetime.fromisoformat(end_date)
-                    end_datetime = end_datetime.replace(hour=23, minute=59, second=59)
-                    if file_date > end_datetime:
-                        continue
-            
-            file_list.append(file_info)
+                file_info = {
+                    "id": str(len(file_list) + 1),
+                    "fileName": file_name,
+                    "fileType": file_ext,
+                    "fileSize": file_stats.st_size,
+                    "createdTime": datetime.fromtimestamp(file_stats.st_ctime).isoformat(),
+                    "lastModified": datetime.fromtimestamp(file_stats.st_mtime).isoformat(),
+                    "path": file_path,
+                    "category": category
+                }
+                
+                # 应用搜索过滤
+                if search_query and search_query.lower() not in file_name.lower():
+                    continue
+                    
+                # 应用文件类型过滤
+                if file_type and file_ext.lower() != f".{file_type.lower()}":
+                    continue
+                    
+                # 应用日期范围过滤
+                if start_date or end_date:
+                    file_date = datetime.fromtimestamp(file_stats.st_mtime)
+                    
+                    if start_date:
+                        start_datetime = datetime.fromisoformat(start_date)
+                        if file_date < start_datetime:
+                            continue
+                            
+                    if end_date:
+                        end_datetime = datetime.fromisoformat(end_date)
+                        end_datetime = end_datetime.replace(hour=23, minute=59, second=59)
+                        if file_date > end_datetime:
+                            continue
+                
+                file_list.append(file_info)
         
         # 应用排序
         if sort_by:
@@ -173,6 +178,8 @@ async def get_file_list(
                 file_list.sort(key=lambda x: x["fileSize"], reverse=reverse)
             elif field == 'date':
                 file_list.sort(key=lambda x: x["lastModified"], reverse=reverse)
+            elif field == 'category':
+                file_list.sort(key=lambda x: x["category"], reverse=reverse)
         
         # 计算总数
         total_count = len(file_list)
@@ -215,13 +222,13 @@ async def get_file_list(
         raise HTTPException(status_code=500, detail=f"获取文件列表失败: {str(e)}")
 
 # 上传文件
-@router.post("/admin/content/emergency-plans/upload", tags=["应急预案管理"])
+@router.post("/admin/content/emergency-plans/upload", tags=["事故案例管理"])
 async def upload_files(
     request: Request,
     files: List[UploadFile] = File(...)
 ):
     """
-    上传文件到应急预案库
+    上传文件到事故案例库
     """
     try:
         # 获取管理员ID
@@ -257,21 +264,21 @@ async def upload_files(
             uploaded_files.append(file.filename)
         
         # 记录操作日志（不阻止主要功能）
-        log_admin_operation(admin_id, "上传文件", f"上传了{len(uploaded_files)}个应急预案文件")
+        log_admin_operation(admin_id, "上传文件", f"上传了{len(uploaded_files)}个事故案例文件")
         
-        return {"success": True, "message": f"成功上传 {len(uploaded_files)} 个应急预案文件", "files": uploaded_files}
+        return {"success": True, "message": f"成功上传 {len(uploaded_files)} 个事故案例文件", "files": uploaded_files}
     except Exception as e:
         logger.error(f"文件上传失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"文件上传失败: {str(e)}")
 
 # 下载文件
-@router.get("/admin/content/emergency-plans/download/{file_name}", tags=["应急预案管理"])
+@router.get("/admin/content/emergency-plans/download/{file_name}", tags=["事故案例管理"])
 async def download_file(
     request: Request,
     file_name: str
 ):
     """
-    下载应急预案文件
+    下载事故案例文件
     """
     try:
         # 获取管理员ID
@@ -284,7 +291,7 @@ async def download_file(
             raise HTTPException(status_code=404, detail="文件不存在")
         
         # 记录操作日志（不阻止主要功能）
-        log_admin_operation(admin_id, "下载文件", f"下载应急预案文件{file_name}")
+        log_admin_operation(admin_id, "下载文件", f"下载事故案例文件{file_name}")
         
         # 确定媒体类型
         file_ext = os.path.splitext(file_name)[1].lower()
@@ -302,7 +309,7 @@ async def download_file(
         raise HTTPException(status_code=500, detail=f"文件下载失败: {str(e)}")
 
 # 查看PDF文件
-@router.get("/admin/content/emergency-plans/view/{file_name}", tags=["应急预案管理"])
+@router.get("/admin/content/emergency-plans/view/{file_name}", tags=["事故案例管理"])
 async def view_file(
     request: Request,
     file_name: str,
@@ -352,13 +359,13 @@ async def view_file(
         raise HTTPException(status_code=500, detail=f"文件查看失败: {str(e)}")
 
 # 删除单个文件
-@router.delete("/admin/content/emergency-plans/{file_name}", tags=["应急预案管理"])
+@router.delete("/admin/content/emergency-plans/{file_name}", tags=["事故案例管理"])
 async def delete_file(
     request: Request,
     file_name: str
 ):
     """
-    删除应急预案中的单个文件
+    删除事故案例中的单个文件
     """
     try:
         # 获取管理员ID
@@ -374,7 +381,7 @@ async def delete_file(
         os.remove(file_path)
         
         # 记录操作日志（不阻止主要功能）
-        log_admin_operation(admin_id, "删除", f"删除了应急预案文件{file_name}")
+        log_admin_operation(admin_id, "删除", f"删除了事故案例文件{file_name}")
         
         return {"success": True, "message": f"成功删除文件: {file_name}"}
     except HTTPException:
@@ -384,13 +391,13 @@ async def delete_file(
         raise HTTPException(status_code=500, detail=f"文件删除失败: {str(e)}")
 
 # 批量删除文件
-@router.post("/admin/content/emergency-plans/batch-delete", tags=["应急预案管理"])
+@router.post("/admin/content/emergency-plans/batch-delete", tags=["事故案例管理"])
 async def batch_delete_files(
     request: Request,
     batch_request: BatchDeleteRequest
 ):
     """
-    批量删除应急预案文件
+    批量删除事故案例文件
     """
     try:
         # 获取管理员ID
@@ -417,7 +424,7 @@ async def batch_delete_files(
                     failed_files.append({"name": file_info["name"], "error": str(e)})
         
         # 记录操作日志（不阻止主要功能）
-        log_admin_operation(admin_id, "删除", f"批量删除了{len(deleted_files)}个应急预案文件")
+        log_admin_operation(admin_id, "删除", f"批量删除了{len(deleted_files)}个事故案例文件")
         
         return {
             "success": True,
